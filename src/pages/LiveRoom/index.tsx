@@ -1,170 +1,123 @@
-import {
-  ArrowLeftOutlined,
-  DesktopOutlined,
-  HeartOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
-import { history, useParams } from '@umijs/max';
-import {
-  Badge,
-  Button,
-  Card,
-  Col,
-  Input,
-  List,
-  Row,
-  Space,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd';
+import { useParams, history } from '@umijs/max';
+import { Row, Col, Avatar, Typography, Space, Button, Divider, Card, Tag, message } from 'antd';
+import { ArrowLeftOutlined, UserOutlined, HeartOutlined, ShareAltOutlined, CheckCircleFilled } from '@ant-design/icons';
+import React, { useEffect, useRef } from 'react';
+import * as vjs_module from 'video.js';
+import 'video.js/dist/video-js.css';
 
 const { Title, Text } = Typography;
 
 export default () => {
   const { id } = useParams<{ id: string }>();
+  const videoRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
+  
+  // 🚩 使用全路径进行测试。如果依然跨域，建议在 .umirc.ts 走代理请求该地址
+  //const hlsUrl = `https://streaming-api-live.pttblockchain.online/live/streams/${id}.m3u8`;
+  const hlsUrl = `/live-api/live/streams/${id}.m3u8`;
 
-  // 1. 之前测试成功的 play.html 地址
-  const playUrl = `https://streaming-api-live.pttblockchain.online/live/play.html?name=${id}&autoplay=true`;
+  useEffect(() => {
+    const videojs: any = (vjs_module as any).default || vjs_module;
 
-  // 2. 备用：如果你想直接拿到 .m3u8 地址供其他播放器使用
-  const m3u8Url = `https://streaming-api-live.pttblockchain.online/live/streams/${id}.m3u8`;
+    const initPlayer = () => {
+      if (!videoRef.current || typeof videojs !== 'function') return;
+
+      // 1. 彻底销毁旧实例并清空容器
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+      videoRef.current.innerHTML = '';
+
+      // 2. 创建 video 标签并设置 crossOrigin 属性
+      const v = document.createElement("video-js");
+      v.className = 'vjs-big-play-centered vjs-fluid';
+      // 🚩 关键：告知浏览器该媒体请求需要跨域凭据
+      v.setAttribute('crossorigin', 'anonymous');
+      videoRef.current.appendChild(v);
+
+      try {
+        // 3. 实例化播放器
+        const player = playerRef.current = videojs(v, {
+          autoplay: true,
+          controls: true,
+          preload: 'auto',
+          sources: [{ src: hlsUrl, type: 'application/x-mpegURL' }],
+          // 🚩 针对 CORS 的深度配置
+          html5: {
+            vhs: { 
+              overrideNative: true, // 强制使用 VHS，避免原生浏览器的 CORS 处理差异
+              withCredentials: false // 如果服务器设置了 Access-Control-Allow-Origin: *，这里必须为 false
+            },
+            nativeAudioTracks: false,
+            nativeVideoTracks: false,
+          },
+        });
+
+        // 4. 诊断监听
+        player.on('loadstart', () => console.log('🚀 尝试拉取流:', hlsUrl));
+        player.on('playing', () => {
+          console.log('✅ 播放成功');
+          message.success('Connected to stream');
+        });
+
+        player.on('error', () => {
+          const error = player.error();
+          console.error('❌ 播放器报错:', error.code, error.message);
+          
+          // 🚩 针对图 2775 现象的针对性提示
+          if (error.code === 2 || error.code === 0) {
+            message.error('网络错误或跨域拦截 (CORS)，请检查服务器 web.xml 配置', 5);
+          } else if (error.code === 4) {
+            message.error('媒体解码失败，请确认流状态是否正常', 5);
+          }
+        });
+
+      } catch (err) {
+        console.error('播放器初始化异常:', err);
+      }
+    };
+
+    const timer = setTimeout(initPlayer, 200);
+
+    return () => {
+      clearTimeout(timer);
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [id, hlsUrl]);
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* 顶部导航 */}
-      <div
-        style={{
-          marginBottom: 20,
-          display: 'flex',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Space size={16}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            shape="circle"
-            onClick={() => history.push('/')}
-          />
-          <div>
-            <Title level={4} style={{ margin: 0 }}>
-              Stream: {id}
-            </Title>
-            <Space>
-              <Badge status="processing" color="#f5222d" text="LIVE" />
-              <Tag color="blue" icon={<DesktopOutlined />}>
-                HLS Protocol
-              </Tag>
-            </Space>
-          </div>
-        </Space>
-        <Button type="primary" icon={<HeartOutlined />}>
-          Follow Stream
-        </Button>
-      </div>
-
+    <div style={{ padding: '24px', maxWidth: 1600, margin: '0 auto' }}>
       <Row gutter={[24, 24]}>
-        {/* 左侧：播放器区域 */}
-        <Col xs={24} lg={18}>
-          <div
-            style={{
-              backgroundColor: '#000',
-              borderRadius: 16,
-              overflow: 'hidden',
-              aspectRatio: '16/9',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-            }}
-          >
-            <iframe
-              src={playUrl}
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              allowFullScreen
-              title="Stream Player"
-            />
+        <Col xs={24} lg={17}>
+          <div style={{ borderRadius: 16, overflow: 'hidden', background: '#000', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+            <div ref={videoRef} key={id} />
           </div>
 
-          <Card style={{ marginTop: 24, borderRadius: 16 }}>
-            <Tabs
-              items={[
-                {
-                  key: '1',
-                  label: 'Broadcast Info',
-                  children: (
-                    <div style={{ padding: '10px 0' }}>
-                      <Text strong>Source URL:</Text>
-                      <code
-                        style={{
-                          display: 'block',
-                          background: '#f5f5f5',
-                          padding: 8,
-                          marginTop: 8,
-                          borderRadius: 4,
-                        }}
-                      >
-                        {m3u8Url}
-                      </code>
-                    </div>
-                  ),
-                },
-              ]}
-            />
+          <Card bordered={false} style={{ marginTop: 24, borderRadius: 12 }}>
+            <Space align="start" size={16}>
+              <Avatar size={48} style={{ backgroundColor: '#5bd1d7' }}>ED</Avatar>
+              <div>
+                <Title level={4} style={{ margin: 0 }}>{id}: Technical Analysis</Title>
+                <Text type="secondary">Broadcast via Ant Media Server <CheckCircleFilled style={{ color: '#5bd1d7', fontSize: 12 }} /></Text>
+                <div style={{ marginTop: 8 }}>
+                  <Tag color="error">LIVE</Tag>
+                  <Tag color="processing">HLS</Tag>
+                </div>
+              </div>
+            </Space>
           </Card>
         </Col>
 
-        {/* 右侧：聊天区域 */}
-        <Col xs={24} lg={6}>
-          <Card
-            title="Live Chat"
-            bordered={false}
-            style={{
-              borderRadius: 16,
-              height: '700px',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            bodyStyle={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              <List
-                dataSource={[
-                  {
-                    user: 'System',
-                    content: `Joined stream ${id} successfully.`,
-                  },
-                ]}
-                renderItem={(item) => (
-                  <div style={{ marginBottom: 16 }}>
-                    <Text strong style={{ fontSize: 12, color: '#5bd1d7' }}>
-                      {item.user}
-                    </Text>
-                    <div
-                      style={{
-                        background: '#f5f5f5',
-                        padding: '8px 12px',
-                        borderRadius: '4px 12px 12px 12px',
-                        marginTop: 4,
-                      }}
-                    >
-                      <Text>{item.content}</Text>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-            <Input.Group compact style={{ marginTop: 16 }}>
-              <Input
-                style={{ width: 'calc(100% - 46px)' }}
-                placeholder="Chat..."
-              />
-              <Button type="primary" icon={<SendOutlined />} />
-            </Input.Group>
+        <Col xs={24} lg={7}>
+          <Title level={5}>Global Node Status</Title>
+          <Card size="small" style={{ borderRadius: 12 }}>
+             <Text type="secondary">Checking stream integrity...</Text>
+             <Divider style={{ margin: '12px 0' }} />
+             <Text size="small" style={{ fontSize: 11, color: '#999' }}>Endpoint: {hlsUrl}</Text>
           </Card>
         </Col>
       </Row>

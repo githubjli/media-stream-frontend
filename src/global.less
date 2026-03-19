@@ -1,0 +1,14 @@
+/* src/global.less */
+
+/* 1. 强制提升收缩按钮的层级，让它站在所有人的头顶 */
+.ant-pro-sider-collapsed-button {
+  z-index: 9999 !important;
+  display: flex !important;
+  /* 往右移动 2px，防止被侧边栏自己的边框切掉 */
+  right: -14px !important;
+}
+
+/* 2. 确保侧边栏容器本身也不被盖住 */
+.ant-layout-sider {
+  z-index: 1000 !important;
+}
