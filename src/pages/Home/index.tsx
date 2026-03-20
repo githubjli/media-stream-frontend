@@ -3,30 +3,16 @@ import {
   CodeOutlined,
   ControlOutlined,
   GlobalOutlined,
-  InboxOutlined,
   ReadOutlined,
   RightOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
-import {
-  Button,
-  Card,
-  Col,
-  Form,
-  Input,
-  Modal,
-  Row,
-  Space,
-  Typography,
-  Upload,
-  message,
-} from 'antd';
-import { useEffect, useState } from 'react';
+import { Button, Card, Col, Row, Typography } from 'antd';
+import { useState } from 'react';
 import styles from './index.less';
 
 const { Title, Text } = Typography;
-const { Dragger } = Upload;
 
 const TAGS = [
   'All',
@@ -93,14 +79,6 @@ const ChannelRow = ({ title, path, items, icon, description }: any) => (
 );
 
 export default () => {
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-
-  useEffect(() => {
-    const handleOpen = () => setIsUploadOpen(true);
-    window.addEventListener('open-upload-modal', handleOpen);
-    return () => window.removeEventListener('open-upload-modal', handleOpen);
-  }, []);
-
   const mockData = {
     tech: [
       {
@@ -188,72 +166,6 @@ export default () => {
           description="Platform announcements, updates, and current coverage."
           items={mockData.news}
         />
-
-        <Modal
-          title={
-            <Title level={4} style={{ margin: 0 }}>
-              Upload Content
-            </Title>
-          }
-          open={isUploadOpen}
-          onCancel={() => setIsUploadOpen(false)}
-          footer={null}
-          width={560}
-          centered
-        >
-          <Form
-            layout="vertical"
-            onFinish={() => {
-              message.success('Success! Processing video...');
-              setIsUploadOpen(false);
-            }}
-          >
-            <Form.Item label="Video File">
-              <Dragger
-                accept="video/*"
-                maxCount={1}
-                customRequest={({ onSuccess }) =>
-                  setTimeout(() => onSuccess?.('ok'), 1000)
-                }
-              >
-                <p className="ant-upload-drag-icon">
-                  <InboxOutlined style={{ color: '#5bd1d7' }} />
-                </p>
-                <p className="ant-upload-text">Click or drag file to upload</p>
-                <p className="ant-upload-hint">
-                  Support high quality MP4, WebM formats
-                </p>
-              </Dragger>
-            </Form.Item>
-            <Form.Item label="Title" name="title" rules={[{ required: true }]}>
-              <Input placeholder="Enter video title" />
-            </Form.Item>
-            <Form.Item label="Channel">
-              <Space wrap>
-                {['Tech', 'Edu', 'Game', 'News'].map((channel) => (
-                  <Button key={channel} shape="round">
-                    {channel}
-                  </Button>
-                ))}
-              </Space>
-            </Form.Item>
-            <Button
-              type="primary"
-              block
-              size="large"
-              htmlType="submit"
-              style={{
-                background: '#5bd1d7',
-                color: '#000',
-                fontWeight: 700,
-                border: 'none',
-                marginTop: 12,
-              }}
-            >
-              Publish
-            </Button>
-          </Form>
-        </Modal>
       </div>
     </PageContainer>
   );

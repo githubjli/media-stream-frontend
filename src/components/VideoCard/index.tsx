@@ -6,7 +6,7 @@ const { Text, Title } = Typography;
 
 export default ({ data }: { data: any }) => (
   <div
-    onClick={() => history.push(`/room/${data.streamId}`)}
+    onClick={() => history.push(data.routePath || `/room/${data.streamId}`)}
     style={{
       cursor: 'pointer',
       borderRadius: 16,

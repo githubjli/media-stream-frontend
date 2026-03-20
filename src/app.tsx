@@ -1,3 +1,5 @@
+import { API_BASE_URL, CurrentUser, resolveCurrentUser } from '@/services/auth';
+import { clearStoredTokens } from '@/utils/auth';
 import {
   API_BASE_URL,
   CurrentUser,
@@ -15,9 +17,11 @@ import {
   GlobalOutlined,
   LogoutOutlined,
   MoonOutlined,
+  PlaySquareOutlined,
   QuestionCircleOutlined,
   SettingOutlined,
   SunOutlined,
+  UploadOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import type { RunTimeLayoutConfig } from '@umijs/max';
@@ -29,6 +33,7 @@ import {
   Dropdown,
   Input,
   Space,
+  Tag,
   Typography,
   theme,
 } from 'antd';
@@ -43,43 +48,6 @@ type InitialState = {
   authLoading?: boolean;
   authBaseUrl: string;
   fetchCurrentUser?: () => Promise<CurrentUser | null>;
-};
-
-const resolveCurrentUser = async (): Promise<CurrentUser | null> => {
-  const accessToken = getAccessToken();
-  const refreshToken = getRefreshToken();
-
-  if (!accessToken) {
-    return null;
-  }
-
-  try {
-    return await getCurrentUser(accessToken);
-  } catch (error) {
-    if (!refreshToken) {
-      clearStoredTokens();
-      return null;
-    }
-
-    try {
-      const refreshed = await refreshAccessToken(refreshToken);
-
-      if (!refreshed.access) {
-        clearStoredTokens();
-        return null;
-      }
-
-      setStoredTokens({
-        access: refreshed.access,
-        refresh: refreshed.refresh || refreshToken,
-      });
-
-      return await getCurrentUser(refreshed.access);
-    } catch (refreshError) {
-      clearStoredTokens();
-      return null;
-    }
-  }
 };
 
 export async function getInitialState(): Promise<InitialState> {
@@ -102,6 +70,10 @@ export const layout: RunTimeLayoutConfig = ({
   const isDark = initialState?.darkTheme;
   const currentUser = initialState?.currentUser;
   const isLoggedIn = Boolean(currentUser?.email);
+
+  const handleUploadClick = () => {
+    history.push(isLoggedIn ? '/videos/upload' : '/login');
+  };
 
   const handleLogout = async () => {
     clearStoredTokens();
@@ -175,9 +147,7 @@ export const layout: RunTimeLayoutConfig = ({
           type="text"
           icon={<CloudUploadOutlined style={{ fontSize: 18 }} />}
           style={{ color: isDark ? '#fff' : '#4b5563' }}
-          onClick={() =>
-            window.dispatchEvent(new CustomEvent('open-upload-modal'))
-          }
+          onClick={handleUploadClick}
         />
         <Button
           type="text"
@@ -221,6 +191,21 @@ export const layout: RunTimeLayoutConfig = ({
             menu={{
               items: [
                 {
+                  key: 'my-videos',
+                  icon: <PlaySquareOutlined />,
+                  label: 'My Videos',
+                  onClick: () => history.push('/videos/mine'),
+                },
+                {
+                  key: 'upload-video',
+                  icon: <UploadOutlined />,
+                  label: 'Upload Video',
+                  onClick: () => history.push('/videos/upload'),
+                },
+                {
+                  type: 'divider',
+                },
+                {
                   key: 'logout',
                   icon: <LogoutOutlined />,
                   label: 'Log out',
@@ -229,27 +214,21 @@ export const layout: RunTimeLayoutConfig = ({
               ],
             }}
           >
-            <Space size={10} style={{ marginLeft: 8, cursor: 'pointer' }}>
-              <Avatar size={36} icon={<UserOutlined />} />
-              <div
+            <Space size={8} style={{ marginLeft: 6, cursor: 'pointer' }}>
+              <Avatar size={32} icon={<UserOutlined />} />
+              <Tag
+                bordered={false}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  lineHeight: 1.2,
+                  marginInlineEnd: 0,
+                  borderRadius: 999,
+                  paddingInline: 10,
+                  maxWidth: 180,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: isDark ? 'rgba(255,255,255,0.65)' : '#6b7280',
-                  }}
-                >
-                  Signed in as
-                </Text>
-                <Text style={{ fontWeight: 600, maxWidth: 180 }} ellipsis>
+                <Text style={{ fontWeight: 600, maxWidth: 150 }} ellipsis>
                   {currentUser?.email}
                 </Text>
-              </div>
+              </Tag>
             </Space>
           </Dropdown>
         ) : (

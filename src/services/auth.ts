@@ -1,3 +1,10 @@
+import {
+  clearStoredTokens,
+  getAccessToken,
+  getRefreshToken,
+  setStoredTokens,
+} from '@/utils/auth';
+
 export type AuthTokens = {
   access: string;
   refresh: string;
@@ -44,9 +51,10 @@ async function requestJson<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(buildUrl(path), {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     },
     ...options,
@@ -54,6 +62,10 @@ async function requestJson<T>(
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response));
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json();
@@ -97,4 +109,74 @@ export async function getCurrentUser(access: string): Promise<CurrentUser> {
   });
 }
 
-export { API_BASE_URL };
+export const resolveCurrentUser = async (): Promise<CurrentUser | null> => {
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    return await getCurrentUser(accessToken);
+  } catch (error) {
+    if (!refreshToken) {
+      clearStoredTokens();
+      return null;
+    }
+
+    try {
+      const refreshed = await refreshAccessToken(refreshToken);
+
+      if (!refreshed.access) {
+        clearStoredTokens();
+        return null;
+      }
+
+      setStoredTokens({
+        access: refreshed.access,
+        refresh: refreshed.refresh || refreshToken,
+      });
+
+      return await getCurrentUser(refreshed.access);
+    } catch (refreshError) {
+      clearStoredTokens();
+      return null;
+    }
+  }
+};
+
+export const getValidAccessToken = async (): Promise<string> => {
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+
+  if (!accessToken) {
+    throw new Error('Please log in to continue.');
+  }
+
+  try {
+    await getCurrentUser(accessToken);
+    return accessToken;
+  } catch (error) {
+    if (!refreshToken) {
+      clearStoredTokens();
+      throw new Error('Please log in to continue.');
+    }
+
+    const refreshed = await refreshAccessToken(refreshToken);
+
+    if (!refreshed.access) {
+      clearStoredTokens();
+      throw new Error('Please log in to continue.');
+    }
+
+    setStoredTokens({
+      access: refreshed.access,
+      refresh: refreshed.refresh || refreshToken,
+    });
+
+    return refreshed.access;
+  }
+};
+
+export { API_BASE_URL, buildUrl, requestJson };

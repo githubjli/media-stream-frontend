@@ -31,6 +31,9 @@ export default defineConfig({
     { path: '/', redirect: '/home' },
     { path: '/login', component: './Login', hideInMenu: true },
     { path: '/register', component: './Register', hideInMenu: true },
+    { path: '/videos/upload', component: './Videos/Upload', hideInMenu: true },
+    { path: '/videos/mine', component: './Videos/Mine', hideInMenu: true },
+    { path: '/videos/:id', component: './Videos/Detail', hideInMenu: true },
     { name: 'Home', path: '/home', icon: 'HomeOutlined', component: './Home' },
     {
       name: 'Education',
