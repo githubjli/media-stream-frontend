@@ -1,23 +1,97 @@
 import {
+  API_BASE_URL,
+  CurrentUser,
+  getCurrentUser,
+  refreshAccessToken,
+} from '@/services/auth';
+import {
+  clearStoredTokens,
+  getAccessToken,
+  getRefreshToken,
+  setStoredTokens,
+} from '@/utils/auth';
+import {
   CloudUploadOutlined,
   GlobalOutlined,
+  LogoutOutlined,
   MoonOutlined,
   QuestionCircleOutlined,
   SettingOutlined,
   SunOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import type { RunTimeLayoutConfig } from '@umijs/max';
 import { SelectLang, history } from '@umijs/max';
-import { Button, ConfigProvider, Input, Space, theme } from 'antd';
+import {
+  Avatar,
+  Button,
+  ConfigProvider,
+  Dropdown,
+  Input,
+  Space,
+  Typography,
+  theme,
+} from 'antd';
 import { useEffect } from 'react';
 
-export async function getInitialState(): Promise<{
+const { Text } = Typography;
+
+type InitialState = {
   name: string;
   darkTheme: boolean;
-}> {
+  currentUser?: CurrentUser | null;
+  authLoading?: boolean;
+  authBaseUrl: string;
+  fetchCurrentUser?: () => Promise<CurrentUser | null>;
+};
+
+const resolveCurrentUser = async (): Promise<CurrentUser | null> => {
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    return await getCurrentUser(accessToken);
+  } catch (error) {
+    if (!refreshToken) {
+      clearStoredTokens();
+      return null;
+    }
+
+    try {
+      const refreshed = await refreshAccessToken(refreshToken);
+
+      if (!refreshed.access) {
+        clearStoredTokens();
+        return null;
+      }
+
+      setStoredTokens({
+        access: refreshed.access,
+        refresh: refreshed.refresh || refreshToken,
+      });
+
+      return await getCurrentUser(refreshed.access);
+    } catch (refreshError) {
+      clearStoredTokens();
+      return null;
+    }
+  }
+};
+
+export async function getInitialState(): Promise<InitialState> {
+  const currentUser = await resolveCurrentUser();
+
   return {
     name: 'Media Stream User',
     darkTheme: false,
+    currentUser,
+    authLoading: false,
+    authBaseUrl: API_BASE_URL,
+    fetchCurrentUser: resolveCurrentUser,
   };
 }
 
@@ -26,6 +100,18 @@ export const layout: RunTimeLayoutConfig = ({
   setInitialState,
 }) => {
   const isDark = initialState?.darkTheme;
+  const currentUser = initialState?.currentUser;
+  const isLoggedIn = Boolean(currentUser?.email);
+
+  const handleLogout = async () => {
+    clearStoredTokens();
+    await setInitialState((prev) => ({
+      ...prev,
+      currentUser: null,
+      authLoading: false,
+    }));
+    history.push('/home');
+  };
 
   return {
     title: 'Media Stream',
@@ -129,24 +215,68 @@ export const layout: RunTimeLayoutConfig = ({
             }));
           }}
         />
-        <Space size={8} style={{ marginLeft: 8 }}>
-          <Button type="text" style={{ color: '#08979c', fontWeight: 700 }}>
-            Log In
-          </Button>
-          <Button
-            type="primary"
-            style={{
-              borderRadius: 10,
-              fontWeight: 700,
-              color: '#000',
-              backgroundColor: '#5bd1d7',
-              border: 'none',
-              boxShadow: '0 8px 18px rgba(91, 209, 215, 0.24)',
+        {isLoggedIn ? (
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                {
+                  key: 'logout',
+                  icon: <LogoutOutlined />,
+                  label: 'Log out',
+                  onClick: handleLogout,
+                },
+              ],
             }}
           >
-            Sign Up
-          </Button>
-        </Space>
+            <Space size={10} style={{ marginLeft: 8, cursor: 'pointer' }}>
+              <Avatar size={36} icon={<UserOutlined />} />
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  lineHeight: 1.2,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: isDark ? 'rgba(255,255,255,0.65)' : '#6b7280',
+                  }}
+                >
+                  Signed in as
+                </Text>
+                <Text style={{ fontWeight: 600, maxWidth: 180 }} ellipsis>
+                  {currentUser?.email}
+                </Text>
+              </div>
+            </Space>
+          </Dropdown>
+        ) : (
+          <Space size={8} style={{ marginLeft: 8 }}>
+            <Button
+              type="text"
+              style={{ color: '#08979c', fontWeight: 700 }}
+              onClick={() => history.push('/login')}
+            >
+              Log In
+            </Button>
+            <Button
+              type="primary"
+              style={{
+                borderRadius: 10,
+                fontWeight: 700,
+                color: '#000',
+                backgroundColor: '#5bd1d7',
+                border: 'none',
+                boxShadow: '0 8px 18px rgba(91, 209, 215, 0.24)',
+              }}
+              onClick={() => history.push('/register')}
+            >
+              Sign Up
+            </Button>
+          </Space>
+        )}
       </Space>
     ),
     token: {
