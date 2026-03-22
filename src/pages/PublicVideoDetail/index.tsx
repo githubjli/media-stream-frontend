@@ -1,5 +1,6 @@
 import {
   ClockCircleOutlined,
+  EyeOutlined,
   FolderOpenOutlined,
   LikeOutlined,
   SaveOutlined,
@@ -248,6 +249,8 @@ export default function PublicVideoDetailPage() {
     };
   }, [video?.id, video?.category]);
 
+  const viewsLabel = String(video?.views || video?.view_count || '24.8K views');
+
   const interactionItems = useMemo(
     () => [
       {
@@ -438,17 +441,21 @@ export default function PublicVideoDetailPage() {
                       size={[12, 12]}
                       style={{ width: '100%', justifyContent: 'space-between' }}
                     >
-                      <div>
-                        <Text
-                          strong
-                          style={{ display: 'block', marginBottom: 4 }}
+                      <Space wrap size={[8, 8]}>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 12px',
+                            borderRadius: 999,
+                            background: 'rgba(15, 23, 42, 0.05)',
+                          }}
                         >
-                          Quick actions
-                        </Text>
-                        <Text type="secondary">
-                          UI-first controls for the public watch experience.
-                        </Text>
-                      </div>
+                          <EyeOutlined style={{ color: '#667085' }} />
+                          <Text strong>{viewsLabel}</Text>
+                        </div>
+                      </Space>
                       <Space wrap size={[8, 8]}>
                         {interactionItems.map((action) => (
                           <Button key={action.key} icon={action.icon}>
@@ -462,58 +469,62 @@ export default function PublicVideoDetailPage() {
 
                 <Card bordered={false} style={{ borderRadius: 18 }}>
                   <Space
-                    align="start"
-                    size={16}
-                    style={{ width: '100%', justifyContent: 'space-between' }}
-                    wrap
+                    direction="vertical"
+                    size={14}
+                    style={{ width: '100%' }}
                   >
                     <Space
                       align="start"
                       size={16}
-                      style={{ flex: 1, minWidth: 280 }}
+                      style={{ width: '100%', justifyContent: 'space-between' }}
+                      wrap
                     >
-                      <Avatar
-                        size={64}
-                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${getAuthorLabel(
-                          video,
-                        )}`}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <Space wrap size={[8, 8]} style={{ marginBottom: 4 }}>
-                          <Title level={4} style={{ margin: 0 }}>
-                            {getAuthorLabel(video)}
-                          </Title>
-                          {video.category_display ? (
-                            <Tag bordered={false} color="default">
-                              {video.category_display}
-                            </Tag>
-                          ) : null}
-                        </Space>
-                        <Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: 4 }}
-                        >
-                          {getSubscriberLabel(video)}
-                        </Text>
-                        <Text
-                          type="secondary"
-                          style={{ display: 'block', marginBottom: 14 }}
-                        >
-                          Featured public creator · Follow UI is
-                          placeholder-only for this demo.
-                        </Text>
-                        <Paragraph
-                          style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}
-                        >
-                          {video.description ||
-                            'No description has been added for this video yet. Check the recommendation panel for more public content to explore.'}
-                        </Paragraph>
-                      </div>
+                      <Space
+                        align="start"
+                        size={16}
+                        style={{ flex: 1, minWidth: 280 }}
+                      >
+                        <Avatar
+                          size={64}
+                          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${getAuthorLabel(
+                            video,
+                          )}`}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Space wrap size={[8, 8]} style={{ marginBottom: 4 }}>
+                            <Title level={4} style={{ margin: 0 }}>
+                              {getAuthorLabel(video)}
+                            </Title>
+                            {video.category_display ? (
+                              <Tag bordered={false} color="default">
+                                {video.category_display}
+                              </Tag>
+                            ) : null}
+                          </Space>
+                          <Text
+                            type="secondary"
+                            style={{ display: 'block', marginBottom: 4 }}
+                          >
+                            {getSubscriberLabel(video)}
+                          </Text>
+                          <Text type="secondary" style={{ display: 'block' }}>
+                            Featured public creator · Subscribe UI is
+                            placeholder-only for this demo.
+                          </Text>
+                        </div>
+                      </Space>
+
+                      <Button type="primary" icon={<UserAddOutlined />}>
+                        Subscribe
+                      </Button>
                     </Space>
 
-                    <Button type="primary" icon={<UserAddOutlined />}>
-                      Follow
-                    </Button>
+                    <Paragraph
+                      style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}
+                    >
+                      {video.description ||
+                        'No description has been added for this video yet. Check the recommendation panel for more public content to explore.'}
+                    </Paragraph>
                   </Space>
                 </Card>
               </Space>
