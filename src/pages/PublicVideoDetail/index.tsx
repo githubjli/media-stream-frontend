@@ -1,10 +1,6 @@
-import VideoCard from '@/components/VideoCard';
 import {
-  getPublicVideoDetail,
-  listPublicVideos,
-  type PublicVideo,
-} from '@/services/publicVideos';
-import {
+  ClockCircleOutlined,
+  FolderOpenOutlined,
   LikeOutlined,
   SaveOutlined,
   ShareAltOutlined,
@@ -24,7 +20,13 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import {
+  getPublicVideoDetail,
+  listPublicVideos,
+  type PublicVideo,
+} from '@/services/publicVideos';
 
 const { Title, Text, Paragraph } = Typography;
 const RECOMMENDATION_LIMIT = 6;
@@ -48,21 +50,95 @@ const formatDate = (value?: string) => {
 
 const getAuthorLabel = (video?: PublicVideo | null) =>
   video?.owner_name ||
+  video?.channel_name ||
   video?.author ||
   video?.category_display ||
   'Media Stream';
 
-const toCardData = (video: PublicVideo) => ({
-  ...video,
-  routePath: `/browse/${video.id}`,
-  name: video.title,
-  author: video.category_display || 'Public video',
-  date: formatDate(video.created_at) || 'Recently added',
-  views: video.category_display || 'Public',
-  thumbnail: video.thumbnail,
-  thumbnail_url: video.thumbnail_url,
-  description: video.description,
-});
+const getThumbnail = (video: PublicVideo) =>
+  video.thumbnail_url ||
+  video.thumbnail ||
+  `https://picsum.photos/seed/${video.id}/640/360`;
+
+const getRecommendationMeta = (video: PublicVideo) =>
+  [video.category_display, formatDate(video.created_at)]
+    .filter(Boolean)
+    .join(' • ');
+
+const RecommendationItem = ({ video }: { video: PublicVideo }) => {
+  const title = video.title || `Video #${video.id}`;
+  const authorLabel = getAuthorLabel(video);
+
+  return (
+    <div
+      onClick={() => history.push(`/browse/${video.id}`)}
+      style={{
+        display: 'flex',
+        gap: 12,
+        cursor: 'pointer',
+        borderRadius: 16,
+        padding: 10,
+        transition:
+          'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
+      }}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.transform = 'translateY(-1px)';
+        event.currentTarget.style.boxShadow =
+          '0 10px 24px rgba(15, 23, 42, 0.08)';
+        event.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.92)';
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.transform = 'translateY(0)';
+        event.currentTarget.style.boxShadow = 'none';
+        event.currentTarget.style.backgroundColor = 'transparent';
+      }}
+    >
+      <div
+        style={{
+          width: 168,
+          maxWidth: '42%',
+          aspectRatio: '16 / 9',
+          borderRadius: 14,
+          overflow: 'hidden',
+          flexShrink: 0,
+          background: '#0f172a',
+        }}
+      >
+        <img
+          alt={title}
+          src={getThumbnail(video)}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <Title
+          level={5}
+          ellipsis={{ rows: 2 }}
+          style={{ margin: '0 0 6px', fontSize: 14, lineHeight: 1.45 }}
+        >
+          {title}
+        </Title>
+        <Space size={8} align="center" style={{ marginBottom: 6 }}>
+          <Avatar
+            size={24}
+            src={`https://api.dicebear.com/7.x/identicon/svg?seed=${authorLabel}`}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }} ellipsis>
+            {authorLabel}
+          </Text>
+        </Space>
+        <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+          {getRecommendationMeta(video) || 'Recently added'}
+        </Text>
+      </div>
+    </div>
+  );
+};
 
 export default function PublicVideoDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -166,7 +242,7 @@ export default function PublicVideoDetailPage() {
     };
   }, [video?.id, video?.category]);
 
-  const actions = useMemo(
+  const actionItems = useMemo(
     () => [
       { key: 'like', label: 'Like', icon: <LikeOutlined /> },
       { key: 'save', label: 'Save', icon: <SaveOutlined /> },
@@ -174,6 +250,41 @@ export default function PublicVideoDetailPage() {
     ],
     [],
   );
+
+  const metadataItems = useMemo(() => {
+    if (!video) {
+      return [];
+    }
+
+    return [
+      video.created_at
+        ? {
+            key: 'published',
+            icon: <ClockCircleOutlined />,
+            label: 'Published',
+            value: formatDate(video.created_at),
+          }
+        : null,
+      video.category_display
+        ? {
+            key: 'category',
+            icon: <FolderOpenOutlined />,
+            label: 'Category',
+            value: video.category_display,
+          }
+        : null,
+      {
+        key: 'video-id',
+        label: 'Video ID',
+        value: String(video.id),
+      },
+    ].filter(Boolean) as Array<{
+      key: string;
+      icon?: ReactNode;
+      label: string;
+      value: string;
+    }>;
+  }, [video]);
 
   return (
     <PageContainer title={false}>
@@ -224,62 +335,115 @@ export default function PublicVideoDetailPage() {
                       </Text>
                     </Card>
                   )}
+                </Card>
 
-                  <div style={{ marginTop: 20 }}>
-                    <Space
-                      wrap
-                      size={[8, 8]}
-                      style={{ width: '100%', justifyContent: 'space-between' }}
-                    >
-                      <Space wrap size={[8, 8]}>
-                        {video.category_display ? (
-                          <Tag color="processing">{video.category_display}</Tag>
-                        ) : null}
-                        {video.created_at ? (
-                          <Text type="secondary">
-                            Published {formatDate(video.created_at)}
-                          </Text>
-                        ) : null}
-                      </Space>
-                      <Button onClick={() => history.push('/browse')}>
-                        Back to browse
-                      </Button>
-                    </Space>
-
-                    <Title level={2} style={{ margin: '12px 0 8px' }}>
-                      {video.title || `Video #${video.id}`}
-                    </Title>
-
+                <Card bordered={false} style={{ borderRadius: 20 }}>
+                  <Space
+                    wrap
+                    size={[8, 8]}
+                    style={{
+                      width: '100%',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                    }}
+                  >
                     <Space wrap size={[8, 8]}>
-                      {actions.map((action) => (
-                        <Button key={action.key} icon={action.icon}>
-                          {action.label}
-                        </Button>
-                      ))}
+                      {video.category_display ? (
+                        <Tag color="processing">{video.category_display}</Tag>
+                      ) : null}
+                      <Text type="secondary">Public video</Text>
                     </Space>
-                  </div>
+                    <Button onClick={() => history.push('/browse')}>
+                      Back to browse
+                    </Button>
+                  </Space>
+
+                  <Title level={2} style={{ margin: '0 0 8px' }}>
+                    {video.title || `Video #${video.id}`}
+                  </Title>
+                  <Paragraph
+                    type="secondary"
+                    style={{ marginBottom: 18, fontSize: 15 }}
+                  >
+                    Settle into a cleaner watch experience with richer context
+                    and related public videos.
+                  </Paragraph>
+
+                  <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+                    {metadataItems.map((item) => (
+                      <Col xs={24} sm={12} md={8} key={item.key}>
+                        <div
+                          style={{
+                            borderRadius: 16,
+                            padding: '12px 14px',
+                            background: 'rgba(15, 23, 42, 0.04)',
+                            border: '1px solid rgba(15, 23, 42, 0.06)',
+                            minHeight: 76,
+                          }}
+                        >
+                          <Text
+                            type="secondary"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              fontSize: 12,
+                              marginBottom: 6,
+                            }}
+                          >
+                            {item.icon}
+                            {item.label}
+                          </Text>
+                          <div>
+                            <Text strong style={{ fontSize: 14 }}>
+                              {item.value}
+                            </Text>
+                          </div>
+                        </div>
+                      </Col>
+                    ))}
+                  </Row>
+
+                  <Space wrap size={[8, 8]}>
+                    {actionItems.map((action) => (
+                      <Button key={action.key} icon={action.icon}>
+                        {action.label}
+                      </Button>
+                    ))}
+                  </Space>
                 </Card>
 
                 <Card bordered={false} style={{ borderRadius: 20 }}>
                   <Space align="start" size={16} style={{ width: '100%' }}>
                     <Avatar
-                      size={56}
+                      size={60}
                       src={`https://api.dicebear.com/7.x/identicon/svg?seed=${getAuthorLabel(
                         video,
                       )}`}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <Title level={4} style={{ margin: '0 0 4px' }}>
-                        {getAuthorLabel(video)}
-                      </Title>
+                      <Space wrap size={[8, 8]} style={{ marginBottom: 4 }}>
+                        <Title level={4} style={{ margin: 0 }}>
+                          {getAuthorLabel(video)}
+                        </Title>
+                        {video.category_display ? (
+                          <Tag bordered={false} color="default">
+                            {video.category_display}
+                          </Tag>
+                        ) : null}
+                      </Space>
                       <Text
                         type="secondary"
-                        style={{ display: 'block', marginBottom: 12 }}
+                        style={{ display: 'block', marginBottom: 14 }}
                       >
-                        Demo-friendly creator card for public video playback.
+                        Featured public creator · Demo-friendly channel
+                        presentation
                       </Text>
-                      <Paragraph style={{ marginBottom: 0 }}>
-                        {video.description || 'No description provided.'}
+                      <Paragraph
+                        style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}
+                      >
+                        {video.description ||
+                          'No description has been added for this video yet. Check the recommendation panel for more public content to explore.'}
                       </Paragraph>
                     </div>
                   </Space>
@@ -292,8 +456,19 @@ export default function PublicVideoDetailPage() {
                 bordered={false}
                 title="Up next"
                 style={{ borderRadius: 20 }}
-                bodyStyle={{ padding: 16 }}
+                styles={{ body: { padding: 12 } }}
               >
+                <Text
+                  type="secondary"
+                  style={{
+                    display: 'block',
+                    marginBottom: 12,
+                    paddingInline: 4,
+                  }}
+                >
+                  More public videos from the same category when available, with
+                  latest uploads as backup.
+                </Text>
                 {recommendationsLoading ? (
                   <Skeleton active paragraph={{ rows: 6 }} title={false} />
                 ) : recommendationsError ? (
@@ -303,13 +478,11 @@ export default function PublicVideoDetailPage() {
                 ) : (
                   <Space
                     direction="vertical"
-                    size={12}
+                    size={8}
                     style={{ width: '100%' }}
                   >
                     {recommendations.map((item) => (
-                      <div key={item.id}>
-                        <VideoCard data={toCardData(item)} />
-                      </div>
+                      <RecommendationItem key={item.id} video={item} />
                     ))}
                   </Space>
                 )}
