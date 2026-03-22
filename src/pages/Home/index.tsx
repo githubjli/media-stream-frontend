@@ -1,13 +1,9 @@
 import VideoCard from '@/components/VideoCard';
+import { type PublicCategory } from '@/services/publicCategories';
 import { listPublicVideos, type PublicVideo } from '@/services/publicVideos';
-import {
-  ClockCircleOutlined,
-  PlaySquareOutlined,
-  ReadOutlined,
-  RightOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, RightOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history } from '@umijs/max';
+import { history, useModel } from '@umijs/max';
 import { Alert, Button, Card, Col, Empty, Row, Spin, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './index.less';
@@ -22,39 +18,41 @@ const toCardData = (video: PublicVideo) => ({
   date: video.created_at || 'Recently added',
   views: video.category_display || 'Public',
   thumbnail: video.thumbnail,
+  thumbnail_url: video.thumbnail_url,
   description: video.description,
 });
 
-const TagsBar = ({
-  tags,
-}: {
-  tags: Array<{ label: string; value: string }>;
-}) => (
+const TagsBar = ({ tags }: { tags: PublicCategory[] }) => (
   <div className={styles.tagsWrap}>
     <div className={styles.tagsBar}>
+      <button
+        type="button"
+        onClick={() => history.push('/browse')}
+        className={styles.tagChip}
+      >
+        All Videos
+      </button>
       {tags.map((tag) => (
         <button
-          key={tag.value}
+          key={tag.slug}
           type="button"
-          onClick={() =>
-            history.push(
-              tag.value === 'all' ? '/browse' : `/categories/${tag.value}`,
-            )
-          }
+          onClick={() => history.push(`/categories/${tag.slug}`)}
           className={styles.tagChip}
         >
-          {tag.label}
+          {tag.name}
         </button>
       ))}
     </div>
   </div>
 );
 
-const ChannelRow = ({ title, path, items, icon, description }: any) => (
+const ChannelRow = ({ title, path, items, description }: any) => (
   <section className={styles.sectionBlock}>
     <div className={styles.sectionHeader}>
       <div className={styles.sectionTitleWrap}>
-        <span className={styles.sectionIcon}>{icon}</span>
+        <span className={styles.sectionIcon}>
+          <AppstoreOutlined />
+        </span>
         <div>
           <Title level={3} className={styles.sectionTitle}>
             {title}
@@ -85,14 +83,9 @@ const ChannelRow = ({ title, path, items, icon, description }: any) => (
   </section>
 );
 
-const matchCategory = (video: PublicVideo, target: string) => {
-  const value = `${video.category || ''} ${
-    video.category_display || ''
-  }`.toLowerCase();
-  return value.includes(target.toLowerCase());
-};
-
 export default function HomePage() {
+  const { initialState } = useModel('@@initialState');
+  const categories = initialState?.publicCategories || [];
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -108,27 +101,17 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const categoryTags = useMemo(() => {
-    const seen = new Map<string, { label: string; value: string }>();
-    seen.set('all', { label: 'All Videos', value: 'all' });
-    videos.forEach((video) => {
-      if (video.category) {
-        seen.set(video.category, {
-          value: video.category,
-          label: video.category_display || video.category,
-        });
-      }
-    });
-    return Array.from(seen.values()).slice(0, 6);
-  }, [videos]);
-
   const latestVideos = videos.slice(0, 4);
-  const techVideos = videos
-    .filter((video) => matchCategory(video, 'tech'))
-    .slice(0, 4);
-  const entertainmentVideos = videos
-    .filter((video) => matchCategory(video, 'entertainment'))
-    .slice(0, 4);
+  const sections = useMemo(
+    () =>
+      categories.slice(0, 3).map((category) => ({
+        ...category,
+        items: videos
+          .filter((video) => video.category === category.slug)
+          .slice(0, 4),
+      })),
+    [categories, videos],
+  );
 
   return (
     <PageContainer title={false} ghost contentWidth="Fluid">
@@ -146,7 +129,7 @@ export default function HomePage() {
               </Text>
             </div>
           </div>
-          <TagsBar tags={categoryTags} />
+          <TagsBar tags={categories} />
         </Card>
 
         {errorMessage ? (
@@ -167,24 +150,18 @@ export default function HomePage() {
             <ChannelRow
               title="Latest"
               path="/browse"
-              icon={<ClockCircleOutlined />}
               description="Recently published public videos across the platform."
               items={latestVideos}
             />
-            <ChannelRow
-              title="Tech"
-              path="/categories/tech"
-              icon={<ReadOutlined />}
-              description="Technology-focused uploads, demos, and explainers."
-              items={techVideos}
-            />
-            <ChannelRow
-              title="Entertainment"
-              path="/categories/entertainment"
-              icon={<PlaySquareOutlined />}
-              description="Watchable highlights, pop culture, and casual viewing picks."
-              items={entertainmentVideos}
-            />
+            {sections.map((section) => (
+              <ChannelRow
+                key={section.slug}
+                title={section.name}
+                path={`/categories/${section.slug}`}
+                description={`Browse the latest videos in ${section.name}.`}
+                items={section.items}
+              />
+            ))}
           </>
         )}
       </div>

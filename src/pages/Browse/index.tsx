@@ -1,10 +1,9 @@
 import VideoCard from '@/components/VideoCard';
 import { listPublicVideos, type PublicVideo } from '@/services/publicVideos';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useSearchParams } from '@umijs/max';
+import { useModel, useSearchParams } from '@umijs/max';
 import {
   Alert,
-  Button,
   Card,
   Col,
   Empty,
@@ -36,18 +35,18 @@ const toCardData = (video: PublicVideo) => ({
   date: video.created_at || 'Recently added',
   views: video.category_display || 'Public',
   thumbnail: video.thumbnail,
+  thumbnail_url: video.thumbnail_url,
   description: video.description,
 });
 
 export default function BrowsePage() {
+  const { initialState } = useModel('@@initialState');
+  const categories = initialState?.publicCategories || [];
   const [searchParams, setSearchParams] = useSearchParams();
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [count, setCount] = useState(0);
-  const [categoryOptions, setCategoryOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
   const [searchDraft, setSearchDraft] = useState(
     searchParams.get('search') || '',
   );
@@ -75,18 +74,6 @@ export default function BrowsePage() {
       .then((response) => {
         setVideos(response.results);
         setCount(response.count);
-        setCategoryOptions((current) => {
-          const map = new Map(current.map((item) => [item.value, item]));
-          response.results.forEach((video) => {
-            if (video.category) {
-              map.set(video.category, {
-                value: video.category,
-                label: video.category_display || video.category,
-              });
-            }
-          });
-          return Array.from(map.values());
-        });
       })
       .catch((error: any) => {
         setErrorMessage(
@@ -117,6 +104,10 @@ export default function BrowsePage() {
     () => Math.max(1, Math.ceil(count / PAGE_SIZE)),
     [count],
   );
+  const categoryOptions = categories.map((item) => ({
+    label: item.name,
+    value: item.slug,
+  }));
 
   return (
     <PageContainer title={false}>
@@ -156,12 +147,6 @@ export default function BrowsePage() {
                 options={ORDER_OPTIONS}
                 onChange={(value) => updateQuery({ ordering: value, page: 1 })}
               />
-              <Button onClick={() => history.push('/categories/tech')}>
-                Tech
-              </Button>
-              <Button onClick={() => history.push('/categories/entertainment')}>
-                Entertainment
-              </Button>
             </Space>
           </Space>
         </Card>

@@ -1,7 +1,7 @@
 import VideoCard from '@/components/VideoCard';
 import { listPublicVideos, type PublicVideo } from '@/services/publicVideos';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useParams } from '@umijs/max';
+import { history, useModel, useParams } from '@umijs/max';
 import {
   Alert,
   Button,
@@ -25,19 +25,14 @@ const toCardData = (video: PublicVideo) => ({
   date: video.created_at || 'Recently added',
   views: video.category_display || 'Public',
   thumbnail: video.thumbnail,
+  thumbnail_url: video.thumbnail_url,
   description: video.description,
 });
 
-const titleFromSlug = (slug?: string) => {
-  if (!slug) return 'Category';
-  return slug
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-};
-
 export default function CategoryBrowsePage() {
   const { category } = useParams<{ category: string }>();
+  const { initialState } = useModel('@@initialState');
+  const categories = initialState?.publicCategories || [];
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -61,7 +56,11 @@ export default function CategoryBrowsePage() {
       .finally(() => setLoading(false));
   }, [category]);
 
-  const pageTitle = useMemo(() => titleFromSlug(category), [category]);
+  const currentCategory = useMemo(
+    () => categories.find((item) => item.slug === category),
+    [categories, category],
+  );
+  const pageTitle = currentCategory?.name || category || 'Category';
 
   return (
     <PageContainer title={false}>

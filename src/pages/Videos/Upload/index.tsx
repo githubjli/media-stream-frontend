@@ -8,12 +8,13 @@ import {
   Card,
   Form,
   Input,
+  Select,
   Typography,
   Upload,
   message,
 } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -30,9 +31,19 @@ export default function UploadVideoPage() {
     }
   }, [initialState?.authLoading, initialState?.currentUser?.email]);
 
+  const categoryOptions = useMemo(
+    () =>
+      (initialState?.publicCategories || []).map((category) => ({
+        label: category.name,
+        value: category.slug,
+      })),
+    [initialState?.publicCategories],
+  );
+
   const handleFinish = async (values: {
     title: string;
     description?: string;
+    category?: string;
   }) => {
     if (!fileList[0]?.originFileObj) {
       setErrorMessage('Please select a video file to upload.');
@@ -46,6 +57,7 @@ export default function UploadVideoPage() {
       const video = await uploadVideo({
         title: values.title,
         description: values.description,
+        category: values.category,
         file: fileList[0].originFileObj as File,
       });
       message.success('Video uploaded successfully.');
@@ -95,6 +107,13 @@ export default function UploadVideoPage() {
             </Form.Item>
             <Form.Item label="Description" name="description">
               <Input.TextArea rows={4} placeholder="Optional description" />
+            </Form.Item>
+            <Form.Item label="Category" name="category">
+              <Select
+                allowClear
+                placeholder="Select a category"
+                options={categoryOptions}
+              />
             </Form.Item>
             <Form.Item label="Video file" required>
               <Upload.Dragger

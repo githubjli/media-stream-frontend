@@ -4,7 +4,6 @@ import {
   listMyVideos,
   regenerateVideoThumbnail,
   updateVideo,
-  VIDEO_CATEGORY_OPTIONS,
   type VideoItem,
 } from '@/services/videos';
 import {
@@ -39,6 +38,12 @@ const { Title, Text } = Typography;
 
 export default function MyVideosPage() {
   const { initialState } = useModel('@@initialState');
+  const categoryOptions = (initialState?.publicCategories || []).map(
+    (category) => ({
+      label: category.name,
+      value: category.slug,
+    }),
+  );
   const [form] = Form.useForm();
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -363,7 +368,7 @@ export default function MyVideosPage() {
             <Select
               allowClear
               placeholder="Select a category"
-              options={VIDEO_CATEGORY_OPTIONS}
+              options={categoryOptions}
             />
           </Form.Item>
         </Form>

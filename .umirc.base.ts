@@ -48,30 +48,6 @@ export default defineConfig({
       component: './Browse',
     },
     {
-      name: 'Education',
-      path: '/edu',
-      icon: 'ReadOutlined',
-      component: './Channel/Education',
-    },
-    {
-      name: 'Gaming',
-      path: '/game',
-      icon: 'ControlOutlined',
-      component: './Channel/Gaming',
-    },
-    {
-      name: 'Technology',
-      path: '/tech',
-      icon: 'CodeOutlined',
-      component: './Channel/Technology',
-    },
-    {
-      name: 'News',
-      path: '/news',
-      icon: 'GlobalOutlined',
-      component: './Channel/News',
-    },
-    {
       name: 'Live',
       path: '/live',
       icon: 'VideoCameraOutlined',

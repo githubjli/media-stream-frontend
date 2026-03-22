@@ -9,6 +9,7 @@ export type PublicVideo = {
   created_at?: string;
   file_url?: string;
   thumbnail?: string;
+  thumbnail_url?: string;
   [key: string]: any;
 };
 

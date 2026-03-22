@@ -17,13 +17,6 @@ export type VideoItem = {
   [key: string]: any;
 };
 
-export const VIDEO_CATEGORY_OPTIONS = [
-  { label: 'Tech', value: 'tech' },
-  { label: 'Education', value: 'education' },
-  { label: 'Entertainment', value: 'entertainment' },
-  { label: 'News', value: 'news' },
-];
-
 const withAuth = async (options: RequestInit = {}) => {
   const accessToken = await getValidAccessToken();
   return {
@@ -80,10 +73,19 @@ export async function updateVideo(
 
 export async function regenerateVideoThumbnail(
   id: string | number,
+  payload?: Record<string, any>,
 ): Promise<VideoItem | void> {
   return requestJson(
     `/api/videos/${id}/regenerate-thumbnail/`,
-    await withAuth({ method: 'POST' }),
+    await withAuth({
+      method: 'POST',
+      ...(payload
+        ? {
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' },
+          }
+        : {}),
+    }),
   );
 }
 
@@ -97,12 +99,16 @@ export async function deleteVideo(id: string | number): Promise<void> {
 export async function uploadVideo(payload: {
   title: string;
   description?: string;
+  category?: string;
   file: File;
 }): Promise<VideoItem> {
   const formData = new FormData();
   formData.append('title', payload.title);
   if (payload.description) {
     formData.append('description', payload.description);
+  }
+  if (payload.category) {
+    formData.append('category', payload.category);
   }
   formData.append('file', payload.file);
 
@@ -124,6 +130,7 @@ export async function uploadVideo(payload: {
           data?.message ||
           data?.file?.[0] ||
           data?.title?.[0] ||
+          data?.category?.[0] ||
           detail;
       } catch (error) {}
       throw new Error(detail);

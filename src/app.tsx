@@ -1,4 +1,8 @@
 import { CurrentUser, resolveCurrentUser } from '@/services/auth';
+import {
+  listPublicCategories,
+  type PublicCategory,
+} from '@/services/publicCategories';
 import { clearStoredTokens } from '@/utils/auth';
 import {
   CloudUploadOutlined,
@@ -35,10 +39,14 @@ type InitialState = {
   currentUser?: CurrentUser | null;
   authLoading?: boolean;
   fetchCurrentUser?: () => Promise<CurrentUser | null>;
+  publicCategories: PublicCategory[];
 };
 
 export async function getInitialState(): Promise<InitialState> {
-  const currentUser = await resolveCurrentUser();
+  const [currentUser, publicCategories] = await Promise.all([
+    resolveCurrentUser(),
+    listPublicCategories().catch(() => []),
+  ]);
 
   return {
     name: 'Media Stream User',
@@ -46,6 +54,7 @@ export async function getInitialState(): Promise<InitialState> {
     currentUser,
     authLoading: false,
     fetchCurrentUser: resolveCurrentUser,
+    publicCategories,
   };
 }
 
@@ -79,6 +88,20 @@ export const layout: RunTimeLayoutConfig = ({
     colorPrimary: '#5bd1d7',
     siderWidth: 176,
     menuHeaderRender: false,
+    menuDataRender: (menuData) => {
+      const stableKeys = new Set(['/home', '/browse', '/live']);
+      const stableItems = menuData.filter(
+        (item) => item.path && stableKeys.has(item.path),
+      );
+      const categoryItems = (initialState?.publicCategories || []).map(
+        (category) => ({
+          name: category.name,
+          path: `/categories/${category.slug}`,
+          icon: 'AppstoreOutlined',
+        }),
+      );
+      return [...stableItems, ...categoryItems];
+    },
     headerTitleRender: () => (
       <div
         style={{
