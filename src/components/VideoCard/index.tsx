@@ -19,16 +19,16 @@ export default ({ data }: { data: any }) => {
       onClick={() => history.push(data.routePath || `/room/${data.streamId}`)}
       style={{
         cursor: 'pointer',
-        borderRadius: 16,
-        padding: 8,
+        borderRadius: 12,
+        padding: 6,
         transition:
           'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
       }}
       onMouseEnter={(event) => {
         event.currentTarget.style.transform = 'translateY(-2px)';
         event.currentTarget.style.boxShadow =
-          '0 12px 28px rgba(15, 23, 42, 0.10)';
-        event.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.88)';
+          '0 10px 22px rgba(15, 23, 42, 0.08)';
+        event.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.68)';
       }}
       onMouseLeave={(event) => {
         event.currentTarget.style.transform = 'translateY(0)';
@@ -39,10 +39,10 @@ export default ({ data }: { data: any }) => {
       <div
         style={{
           position: 'relative',
-          borderRadius: 16,
+          borderRadius: 12,
           overflow: 'hidden',
           aspectRatio: '16/9',
-          marginBottom: 16,
+          marginBottom: 12,
           background: '#0f172a',
         }}
       >
@@ -64,27 +64,27 @@ export default ({ data }: { data: any }) => {
             color="red"
             style={{
               position: 'absolute',
-              top: 12,
-              left: 12,
+              top: 10,
+              left: 10,
               border: 'none',
               fontWeight: 700,
               borderRadius: 999,
-              paddingInline: 10,
+              paddingInline: 8,
             }}
           >
             LIVE
           </Tag>
         )}
       </div>
-      <Space align="start" size={12} style={{ width: '100%' }}>
+      <Space align="start" size={10} style={{ width: '100%' }}>
         <Avatar
           src={`https://api.dicebear.com/7.x/identicon/svg?seed=${secondaryLabel}`}
-          size={40}
+          size={34}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <Title
             level={5}
-            style={{ margin: '0 0 6px', fontSize: 15, lineHeight: 1.45 }}
+            style={{ margin: '0 0 4px', fontSize: 14, lineHeight: 1.4 }}
             ellipsis={{ rows: 2 }}
           >
             {title}
@@ -92,18 +92,18 @@ export default ({ data }: { data: any }) => {
           <Text
             type="secondary"
             style={{
-              fontSize: 13,
+              fontSize: 12,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
             }}
           >
-            {secondaryLabel}{' '}
-            <CheckCircleFilled style={{ color: '#5bd1d7', fontSize: 11 }} />
+            {secondaryLabel}
+            <CheckCircleFilled style={{ color: '#35b8be', fontSize: 10 }} />
           </Text>
           {metaLine ? (
-            <div style={{ marginTop: 4 }}>
-              <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 2 }}>
+              <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.5 }}>
                 {metaLine}
               </Text>
             </div>
@@ -112,7 +112,7 @@ export default ({ data }: { data: any }) => {
             <Paragraph
               type="secondary"
               ellipsis={{ rows: 2 }}
-              style={{ margin: '8px 0 0', fontSize: 12 }}
+              style={{ margin: '6px 0 0', fontSize: 11, lineHeight: 1.55 }}
             >
               {data.description}
             </Paragraph>

@@ -111,11 +111,18 @@ export default function BrowsePage() {
 
   return (
     <PageContainer title={false}>
-      <div style={{ padding: '8px 8px 24px' }}>
-        <Card bordered={false} style={{ borderRadius: 20, marginBottom: 24 }}>
-          <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      <div style={{ padding: '8px 8px 20px' }}>
+        <Card
+          bordered={false}
+          style={{
+            borderRadius: 16,
+            marginBottom: 20,
+            border: '1px solid rgba(15, 23, 42, 0.06)',
+          }}
+        >
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <div>
-              <Title level={2} style={{ margin: 0 }}>
+              <Title level={2} style={{ margin: 0, fontSize: 28 }}>
                 Browse videos
               </Title>
               <Text type="secondary">
@@ -124,26 +131,39 @@ export default function BrowsePage() {
               </Text>
             </div>
 
-            <Space wrap size={12} style={{ width: '100%' }}>
+            <Space
+              wrap
+              size={[10, 10]}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 14,
+                background: 'rgba(15, 23, 42, 0.03)',
+                border: '1px solid rgba(15, 23, 42, 0.05)',
+              }}
+            >
               <Input.Search
                 value={searchDraft}
                 onChange={(event) => setSearchDraft(event.target.value)}
                 onSearch={(value) => updateQuery({ search: value, page: 1 })}
                 placeholder="Search videos"
                 allowClear
-                style={{ minWidth: 260, flex: 1 }}
+                size="large"
+                style={{ minWidth: 240, flex: 1 }}
               />
               <Select
                 allowClear
                 placeholder="Category"
                 value={category || undefined}
-                style={{ minWidth: 180 }}
+                size="large"
+                style={{ minWidth: 170 }}
                 options={categoryOptions}
                 onChange={(value) => updateQuery({ category: value, page: 1 })}
               />
               <Select
                 value={ordering}
-                style={{ minWidth: 180 }}
+                size="large"
+                style={{ minWidth: 170 }}
                 options={ORDER_OPTIONS}
                 onChange={(value) => updateQuery({ ordering: value, page: 1 })}
               />
@@ -168,9 +188,9 @@ export default function BrowsePage() {
           <Empty description="No public videos matched your filters." />
         ) : (
           <>
-            <Row gutter={[20, 24]}>
+            <Row gutter={[16, 20]}>
               {videos.map((video) => (
-                <Col xs={24} sm={12} md={8} lg={6} key={video.id}>
+                <Col xs={24} sm={12} md={8} lg={6} xl={6} key={video.id}>
                   <VideoCard data={toCardData(video)} />
                 </Col>
               ))}
@@ -179,7 +199,7 @@ export default function BrowsePage() {
               style={{
                 display: 'flex',
                 justifyContent: 'flex-end',
-                marginTop: 24,
+                marginTop: 20,
               }}
             >
               <Pagination
@@ -190,7 +210,7 @@ export default function BrowsePage() {
                 onChange={(nextPage) => updateQuery({ page: nextPage })}
               />
             </div>
-            <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+            <Text type="secondary" style={{ display: 'block', marginTop: 6 }}>
               Page {page} of {totalPages}
             </Text>
           </>

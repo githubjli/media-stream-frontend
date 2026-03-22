@@ -86,8 +86,8 @@ export const layout: RunTimeLayoutConfig = ({
     layout: 'mix',
     splitMenus: false,
     navTheme: isDark ? 'realDark' : 'light',
-    colorPrimary: '#5bd1d7',
-    siderWidth: 176,
+    colorPrimary: '#35b8be',
+    siderWidth: 188,
     menuHeaderRender: false,
     menuDataRender: (menuData) => {
       const stableKeys = new Set(['/home', '/browse', '/live']);
@@ -108,7 +108,7 @@ export const layout: RunTimeLayoutConfig = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
+          gap: 10,
           cursor: 'pointer',
         }}
         onClick={() => history.push('/')}
@@ -120,7 +120,7 @@ export const layout: RunTimeLayoutConfig = ({
         />
         <span
           style={{
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: 700,
             color: isDark ? '#fff' : '#111827',
             letterSpacing: '-0.01em',
@@ -136,22 +136,22 @@ export const layout: RunTimeLayoutConfig = ({
           display: 'flex',
           justifyContent: 'center',
           width: '100%',
-          padding: '0 24px',
+          padding: '0 20px',
         }}
       >
         <Input.Search
           placeholder="Search videos, channels, and people"
           allowClear
-          style={{ maxWidth: 640, width: '100%' }}
-          size="large"
+          style={{ maxWidth: 560, width: '100%' }}
+          size="middle"
           onSearch={(value) => console.log('Searching for:', value)}
         />
       </div>
     ),
     rightContentRender: () => (
       <Space
-        size={8}
-        style={{ marginRight: 8, display: 'flex', alignItems: 'center' }}
+        size={6}
+        style={{ marginRight: 6, display: 'flex', alignItems: 'center' }}
       >
         <Button
           type="text"
@@ -245,7 +245,7 @@ export const layout: RunTimeLayoutConfig = ({
           <Space size={8} style={{ marginLeft: 8 }}>
             <Button
               type="text"
-              style={{ color: '#08979c', fontWeight: 700 }}
+              style={{ color: '#0f766e', fontWeight: 600 }}
               onClick={() => history.push('/login')}
             >
               Log In
@@ -253,12 +253,14 @@ export const layout: RunTimeLayoutConfig = ({
             <Button
               type="primary"
               style={{
-                borderRadius: 10,
+                borderRadius: 9,
                 fontWeight: 700,
-                color: '#000',
-                backgroundColor: '#5bd1d7',
+                color: '#07272a',
+                backgroundColor: '#35b8be',
                 border: 'none',
-                boxShadow: '0 8px 18px rgba(91, 209, 215, 0.24)',
+                boxShadow: isDark
+                  ? '0 8px 18px rgba(53, 184, 190, 0.18)'
+                  : '0 8px 18px rgba(53, 184, 190, 0.2)',
               }}
               onClick={() => history.push('/register')}
             >
@@ -293,15 +295,15 @@ export const layout: RunTimeLayoutConfig = ({
           theme={{
             algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
             token: {
-              colorPrimary: '#5bd1d7',
+              colorPrimary: '#35b8be',
               borderRadius: 12,
             },
             components: {
               Input: {
-                borderRadiusLG: 14,
+                borderRadiusLG: 12,
               },
               Button: {
-                borderRadius: 10,
+                borderRadius: 9,
               },
             },
           }}
