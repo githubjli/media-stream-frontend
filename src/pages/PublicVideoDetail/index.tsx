@@ -306,7 +306,7 @@ export default function PublicVideoDetailPage() {
 
   return (
     <PageContainer title={false}>
-      <div style={{ padding: '8px 8px 24px' }}>
+      <div style={{ padding: '8px 8px 20px' }}>
         {loading ? (
           <Card bordered={false} style={{ borderRadius: 20 }}>
             <Skeleton active paragraph={{ rows: 10 }} />
@@ -318,19 +318,19 @@ export default function PublicVideoDetailPage() {
             <Empty description="Video not found." />
           </Card>
         ) : (
-          <Row gutter={[24, 24]} align="top">
+          <Row gutter={[20, 20]} align="top">
             <Col xs={24} lg={16} xl={17}>
-              <Space direction="vertical" size={20} style={{ width: '100%' }}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 <Card
                   bordered={false}
-                  style={{ borderRadius: 20, overflow: 'hidden' }}
+                  style={{ borderRadius: 18, overflow: 'hidden' }}
                 >
                   {video.file_url ? (
                     <video
                       controls
                       style={{
                         width: '100%',
-                        borderRadius: 16,
+                        borderRadius: 14,
                         background: '#000',
                         aspectRatio: '16/9',
                         display: 'block',
@@ -355,14 +355,14 @@ export default function PublicVideoDetailPage() {
                   )}
                 </Card>
 
-                <Card bordered={false} style={{ borderRadius: 20 }}>
+                <Card bordered={false} style={{ borderRadius: 18 }}>
                   <Space
                     wrap
                     size={[8, 8]}
                     style={{
                       width: '100%',
                       justifyContent: 'space-between',
-                      marginBottom: 12,
+                      marginBottom: 10,
                     }}
                   >
                     <Space wrap size={[8, 8]}>
@@ -376,27 +376,30 @@ export default function PublicVideoDetailPage() {
                     </Button>
                   </Space>
 
-                  <Title level={2} style={{ margin: '0 0 8px' }}>
+                  <Title
+                    level={2}
+                    style={{ margin: '0 0 6px', lineHeight: 1.3 }}
+                  >
                     {video.title || `Video #${video.id}`}
                   </Title>
                   <Text
                     type="secondary"
-                    style={{ display: 'block', marginBottom: 18, fontSize: 15 }}
+                    style={{ display: 'block', marginBottom: 16, fontSize: 14 }}
                   >
                     Published content with quick context, simple interactions,
                     and related videos nearby.
                   </Text>
 
-                  <Row gutter={[12, 12]} style={{ marginBottom: 18 }}>
+                  <Row gutter={[10, 10]} style={{ marginBottom: 16 }}>
                     {metadataItems.map((item) => (
                       <Col xs={24} sm={12} md={8} key={item.key}>
                         <div
                           style={{
-                            borderRadius: 16,
+                            borderRadius: 14,
                             padding: '12px 14px',
                             background: 'rgba(15, 23, 42, 0.04)',
                             border: '1px solid rgba(15, 23, 42, 0.06)',
-                            minHeight: 76,
+                            minHeight: 72,
                           }}
                         >
                           <Text
@@ -424,7 +427,7 @@ export default function PublicVideoDetailPage() {
 
                   <div
                     style={{
-                      borderRadius: 18,
+                      borderRadius: 16,
                       padding: 12,
                       background: 'rgba(255, 255, 255, 0.78)',
                       border: '1px solid rgba(15, 23, 42, 0.06)',
@@ -457,7 +460,7 @@ export default function PublicVideoDetailPage() {
                   </div>
                 </Card>
 
-                <Card bordered={false} style={{ borderRadius: 20 }}>
+                <Card bordered={false} style={{ borderRadius: 18 }}>
                   <Space
                     align="start"
                     size={16}
@@ -520,8 +523,8 @@ export default function PublicVideoDetailPage() {
               <Card
                 bordered={false}
                 title="Up next"
-                style={{ borderRadius: 20 }}
-                styles={{ body: { padding: 12 } }}
+                style={{ borderRadius: 18 }}
+                styles={{ body: { padding: 10 } }}
               >
                 <Text
                   type="secondary"

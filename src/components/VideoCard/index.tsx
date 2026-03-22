@@ -6,11 +6,12 @@ const { Text, Title, Paragraph } = Typography;
 
 export default ({ data }: { data: any }) => {
   const title = data.title || data.name;
-  const secondaryLabel = data.category_display || data.author || 'Media Stream';
-  const metaLine = [
-    data.category_display || data.views,
-    data.created_at || data.date,
-  ]
+  const description = data.description_preview || data.description;
+  const uploaderLabel = data.author || data.owner_name || 'Media Stream';
+  const publishedLabel = data.created_at || data.date || 'Recently added';
+  const viewsLabel = data.views || data.view_count;
+  const categoryLabel = data.category_name || data.category_display;
+  const metaLine = [uploaderLabel, publishedLabel, viewsLabel]
     .filter(Boolean)
     .join(' • ');
 
@@ -27,8 +28,8 @@ export default ({ data }: { data: any }) => {
       onMouseEnter={(event) => {
         event.currentTarget.style.transform = 'translateY(-2px)';
         event.currentTarget.style.boxShadow =
-          '0 10px 22px rgba(15, 23, 42, 0.08)';
-        event.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.68)';
+          '0 12px 24px rgba(15, 23, 42, 0.07)';
+        event.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.62)';
       }}
       onMouseLeave={(event) => {
         event.currentTarget.style.transform = 'translateY(0)';
@@ -42,7 +43,7 @@ export default ({ data }: { data: any }) => {
           borderRadius: 12,
           overflow: 'hidden',
           aspectRatio: '16/9',
-          marginBottom: 12,
+          marginBottom: 10,
           background: '#0f172a',
         }}
       >
@@ -76,49 +77,54 @@ export default ({ data }: { data: any }) => {
           </Tag>
         )}
       </div>
-      <Space align="start" size={10} style={{ width: '100%' }}>
-        <Avatar
-          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${secondaryLabel}`}
-          size={34}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Title
-            level={5}
-            style={{ margin: '0 0 4px', fontSize: 14, lineHeight: 1.4 }}
-            ellipsis={{ rows: 2 }}
-          >
-            {title}
-          </Title>
-          <Text
-            type="secondary"
+      <div style={{ minWidth: 0 }}>
+        {categoryLabel ? (
+          <Tag
+            bordered={false}
             style={{
-              fontSize: 12,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
+              margin: '0 0 6px',
+              borderRadius: 999,
+              background: 'rgba(15, 23, 42, 0.05)',
+              color: '#667085',
+              paddingInline: 8,
             }}
           >
-            {secondaryLabel}
-            <CheckCircleFilled style={{ color: '#35b8be', fontSize: 10 }} />
+            {categoryLabel}
+          </Tag>
+        ) : null}
+        <Title
+          level={5}
+          style={{ margin: '0 0 4px', fontSize: 14, lineHeight: 1.4 }}
+          ellipsis={{ rows: 2 }}
+        >
+          {title}
+        </Title>
+        {description ? (
+          <Paragraph
+            type="secondary"
+            ellipsis={{ rows: 2 }}
+            style={{ margin: '0 0 6px', fontSize: 12, lineHeight: 1.55 }}
+          >
+            {description}
+          </Paragraph>
+        ) : null}
+        <Space align="center" size={8} style={{ width: '100%' }}>
+          <Avatar
+            src={`https://api.dicebear.com/7.x/identicon/svg?seed=${uploaderLabel}`}
+            size={28}
+          />
+          <Text
+            type="secondary"
+            style={{ fontSize: 11.5, lineHeight: 1.5 }}
+            ellipsis
+          >
+            {metaLine}
           </Text>
-          {metaLine ? (
-            <div style={{ marginTop: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.5 }}>
-                {metaLine}
-              </Text>
-            </div>
-          ) : null}
-          {data.description ? (
-            <Paragraph
-              type="secondary"
-              ellipsis={{ rows: 2 }}
-              style={{ margin: '6px 0 0', fontSize: 11, lineHeight: 1.55 }}
-            >
-              {data.description}
-            </Paragraph>
-          ) : null}
-        </div>
-      </Space>
+          <CheckCircleFilled
+            style={{ color: '#35b8be', fontSize: 10, flexShrink: 0 }}
+          />
+        </Space>
+      </div>
     </div>
   );
 };

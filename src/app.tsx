@@ -66,6 +66,15 @@ export const layout: RunTimeLayoutConfig = ({
   const isDark = initialState?.darkTheme;
   const currentUser = initialState?.currentUser;
   const isLoggedIn = Boolean(currentUser?.email);
+  const utilityButtonStyle = {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: isDark ? '#d7e0ea' : '#4b5563',
+  } as const;
 
   const handleUploadClick = () => {
     history.push(isLoggedIn ? '/videos/upload' : '/login');
@@ -156,25 +165,25 @@ export const layout: RunTimeLayoutConfig = ({
         <Button
           type="text"
           icon={<CloudUploadOutlined style={{ fontSize: 18 }} />}
-          style={{ color: isDark ? '#fff' : '#4b5563' }}
+          style={utilityButtonStyle}
           onClick={handleUploadClick}
         />
         <Button
           type="text"
           icon={<SettingOutlined style={{ fontSize: 18 }} />}
-          style={{ color: isDark ? '#fff' : '#4b5563' }}
+          style={utilityButtonStyle}
         />
         <Button
           type="text"
           icon={<QuestionCircleOutlined style={{ fontSize: 18 }} />}
-          style={{ color: isDark ? '#fff' : '#4b5563' }}
+          style={utilityButtonStyle}
         />
         <SelectLang
           icon={
             <Button
               type="text"
               icon={<GlobalOutlined style={{ fontSize: 18 }} />}
-              style={{ color: isDark ? '#fff' : '#4b5563', padding: 0 }}
+              style={{ ...utilityButtonStyle, padding: 0 }}
             />
           }
         />
@@ -187,7 +196,11 @@ export const layout: RunTimeLayoutConfig = ({
               <MoonOutlined />
             )
           }
-          style={{ fontSize: 18, color: isDark ? '#faad14' : '#4b5563' }}
+          style={{
+            ...utilityButtonStyle,
+            fontSize: 18,
+            color: isDark ? '#f6c453' : '#4b5563',
+          }}
           onClick={() => {
             setInitialState((pre) => ({
               ...pre!,
@@ -276,7 +289,9 @@ export const layout: RunTimeLayoutConfig = ({
         paddingBlockPageContainerContent: 12,
       },
       header: {
-        colorBgHeader: isDark ? '#141414' : 'rgba(255, 255, 255, 0.92)',
+        colorBgHeader: isDark
+          ? 'rgba(11, 17, 24, 0.92)'
+          : 'rgba(255, 255, 255, 0.92)',
       },
     },
     childrenRender: (children) => {
