@@ -141,10 +141,26 @@ export default function LiveCreatePage() {
       return;
     }
 
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const hasSecureContext =
+      typeof window !== 'undefined' ? window.isSecureContext : false;
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setDevicePermissionStatus('error');
       setDeviceStatusMessage(
-        'This browser does not support camera preview via getUserMedia.',
+        hasSecureContext || isLocalhost
+          ? 'Camera preview is unavailable because this browser does not expose camera access for the current environment.'
+          : 'Camera and microphone preview requires HTTPS or localhost. Your current LAN URL is not a secure browser context.',
+      );
+      return;
+    }
+
+    if (!hasSecureContext && !isLocalhost) {
+      setDevicePermissionStatus('error');
+      setDeviceStatusMessage(
+        'Camera and microphone preview requires HTTPS or localhost. Switch to a secure URL, then try again.',
       );
       return;
     }
@@ -181,7 +197,7 @@ export default function LiveCreatePage() {
       setDevicePermissionStatus('error');
       setDeviceStatusMessage(
         error?.message ||
-          'Camera preview could not start. Please review browser permissions and try again.',
+          'Camera preview could not start. Please review browser permissions, confirm HTTPS or localhost, and try again.',
       );
     }
   };
@@ -436,7 +452,7 @@ export default function LiveCreatePage() {
                         <Text type="secondary">
                           {broadcastMode === 'camera'
                             ? 'Request local camera and microphone access to verify readiness before publishing.'
-                            : 'Review your RTMP configuration details for external encoders.'}
+                            : 'Stream key mode keeps your OBS or encoder details in the stream details card on the right, while this panel stays focused on browser preview workflows.'}
                         </Text>
                       </div>
 
@@ -539,34 +555,11 @@ export default function LiveCreatePage() {
                           </Space>
                         </>
                       ) : createdLive ? (
-                        <Descriptions column={1} labelStyle={{ width: 140 }}>
-                          {infoItems.map((item) => (
-                            <Descriptions.Item
-                              key={item.key}
-                              label={item.label}
-                            >
-                              <Space
-                                style={{
-                                  width: '100%',
-                                  justifyContent: 'space-between',
-                                }}
-                                align="start"
-                              >
-                                <Text code style={{ wordBreak: 'break-all' }}>
-                                  {item.value || 'Not provided'}
-                                </Text>
-                                <Button
-                                  icon={<CopyOutlined />}
-                                  onClick={() =>
-                                    copyValue(item.value, item.label)
-                                  }
-                                >
-                                  Copy
-                                </Button>
-                              </Space>
-                            </Descriptions.Item>
-                          ))}
-                        </Descriptions>
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="Use Stream Key mode keeps the RTMP Server, Stream Key, and Playback URL in separate fields so OBS configuration is clearer and less error-prone."
+                        />
                       ) : (
                         <Empty description="Create a live session to reveal RTMP details." />
                       )}
@@ -632,16 +625,21 @@ export default function LiveCreatePage() {
                       {createdLive ? (
                         <Space
                           direction="vertical"
-                          size={12}
+                          size={16}
                           style={{ width: '100%' }}
                         >
-                          <Text strong>
-                            {createdLive.title || createdLive.name}
-                          </Text>
-                          <Text type="secondary">
-                            {createdLive.description ||
-                              'Session is prepared and ready for browser preview or RTMP publishing.'}
-                          </Text>
+                          <div>
+                            <Text strong>
+                              {createdLive.title || createdLive.name}
+                            </Text>
+                            <Text
+                              type="secondary"
+                              style={{ display: 'block', marginTop: 6 }}
+                            >
+                              {createdLive.description ||
+                                'Session is prepared and ready for browser preview or RTMP publishing.'}
+                            </Text>
+                          </div>
                           <Space wrap>
                             <Tag>{createdLive.category || 'General'}</Tag>
                             <Tag color="processing">
@@ -650,6 +648,39 @@ export default function LiveCreatePage() {
                               ).toUpperCase()}
                             </Tag>
                           </Space>
+                          <Descriptions column={1} labelStyle={{ width: 126 }}>
+                            {infoItems.map((item) => (
+                              <Descriptions.Item
+                                key={item.key}
+                                label={item.label}
+                              >
+                                <Space
+                                  style={{
+                                    width: '100%',
+                                    justifyContent: 'space-between',
+                                  }}
+                                  align="start"
+                                >
+                                  <Text code style={{ wordBreak: 'break-all' }}>
+                                    {item.value || 'Not provided'}
+                                  </Text>
+                                  <Button
+                                    icon={<CopyOutlined />}
+                                    onClick={() =>
+                                      copyValue(item.value, item.label)
+                                    }
+                                  >
+                                    Copy
+                                  </Button>
+                                </Space>
+                              </Descriptions.Item>
+                            ))}
+                          </Descriptions>
+                          <Alert
+                            type="info"
+                            showIcon
+                            message="OBS setup tip: paste the RTMP Server into the server field and the Stream Key into the stream key field. Keep Playback URL separate for monitoring and QA."
+                          />
                           <Button
                             type="primary"
                             icon={<PlayCircleOutlined />}

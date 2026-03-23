@@ -6,7 +6,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history, useModel, useParams } from '@umijs/max';
+import { history, useLocation, useModel, useParams } from '@umijs/max';
 import {
   Alert,
   Avatar,
@@ -23,8 +23,6 @@ import {
   message,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as vjs_module from 'video.js';
-import 'video.js/dist/video-js.css';
 
 import {
   endLiveBroadcast,
@@ -34,6 +32,23 @@ import {
 } from '@/services/live';
 
 const { Title, Text, Paragraph } = Typography;
+
+type HlsCtor = {
+  isSupported: () => boolean;
+  Events: { MANIFEST_PARSED: string; ERROR: string };
+  new (): {
+    loadSource: (src: string) => void;
+    attachMedia: (media: HTMLVideoElement) => void;
+    on: (event: string, callback: (...args: any[]) => void) => void;
+    destroy: () => void;
+  };
+};
+
+declare global {
+  interface Window {
+    Hls?: HlsCtor;
+  }
+}
 
 const getStatusColor = (status?: string) => {
   switch (String(status || '').toLowerCase()) {
@@ -70,22 +85,57 @@ const copyValue = async (value: string, label: string) => {
   }
 };
 
+const loadHlsLibrary = async (): Promise<HlsCtor | null> => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (window.Hls) {
+    return window.Hls;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-hls-js-cdn="true"]',
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true });
+      existingScript.addEventListener(
+        'error',
+        () => reject(new Error('Unable to load hls.js.')),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js';
+    script.async = true;
+    script.dataset.hlsJsCdn = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Unable to load hls.js.'));
+    document.head.appendChild(script);
+  });
+
+  return window.Hls || null;
+};
+
 export default function LiveRoomPage() {
   const { initialState } = useModel('@@initialState');
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const query = useMemo(
-    () => getLocationQuery(location.search),
-    [location.search],
-  );
-  const videoRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
+  const videoElementRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const [broadcast, setBroadcast] = useState<LiveBroadcast | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<'start' | 'end' | null>(
     null,
   );
   const [errorMessage, setErrorMessage] = useState('');
+  const [playerStatus, setPlayerStatus] = useState(
+    'Waiting for a playback URL from Django.',
+  );
 
   const isLoggedIn = Boolean(initialState?.currentUser?.email);
   const playbackUrl = broadcast?.playback_url || '';
@@ -99,11 +149,11 @@ export default function LiveRoomPage() {
 
   const detailItems = useMemo(
     () => [
+      { label: 'RTMP Server', value: broadcast?.rtmp_url || '' },
       { label: 'Stream Key', value: broadcast?.stream_key || '' },
-      { label: 'RTMP Server URL', value: broadcast?.rtmp_url || '' },
       { label: 'Playback URL', value: playbackUrl },
     ],
-    [broadcast?.stream_key, broadcast?.rtmp_url, playbackUrl],
+    [broadcast?.rtmp_url, broadcast?.stream_key, playbackUrl],
   );
 
   const loadBroadcast = async (showLoader = false) => {
@@ -119,6 +169,11 @@ export default function LiveRoomPage() {
       const data = await getLiveBroadcast(id);
       setBroadcast(data);
       setErrorMessage('');
+      setPlayerStatus(
+        data?.playback_url
+          ? 'Playback URL received from Django. Preparing player…'
+          : 'Playback URL is not available yet. Start publishing from OBS or your encoder and refresh shortly.',
+      );
     } catch (error: any) {
       setErrorMessage(error?.message || 'Unable to load the live room.');
       setBroadcast(null);
@@ -134,46 +189,81 @@ export default function LiveRoomPage() {
   }, [id]);
 
   useEffect(() => {
-    const videojs: any = (vjs_module as any).default || vjs_module;
-    if (!videoRef.current || !playbackUrl || typeof videojs !== 'function') {
+    const videoElement = videoElementRef.current;
+    if (!videoElement || !playbackUrl) {
       return;
     }
 
-    if (playerRef.current) {
-      playerRef.current.dispose();
-      playerRef.current = null;
-    }
-    videoRef.current.innerHTML = '';
+    let cancelled = false;
 
-    const element = document.createElement('video-js');
-    element.className = 'vjs-big-play-centered vjs-fluid';
-    videoRef.current.appendChild(element);
+    const attachPlayback = async () => {
+      if (cancelled || !videoElement) {
+        return;
+      }
 
-    playerRef.current = videojs(element, {
-      autoplay: false,
-      controls: true,
-      responsive: true,
-      fluid: true,
-      preload: 'auto',
-      liveui: true,
-      sources: [{ src: playbackUrl, type: 'application/x-mpegURL' }],
-    });
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      videoElement.pause();
+      videoElement.removeAttribute('src');
+      videoElement.load();
+
+      const canUseNativeHls = videoElement.canPlayType(
+        'application/vnd.apple.mpegurl',
+      );
+
+      if (canUseNativeHls) {
+        videoElement.src = playbackUrl;
+        setPlayerStatus('Using native HLS playback for this stream.');
+        return;
+      }
+
+      try {
+        const Hls = await loadHlsLibrary();
+        if (cancelled || !videoElement) {
+          return;
+        }
+
+        if (Hls?.isSupported()) {
+          const hls = new Hls();
+          hlsRef.current = hls;
+          hls.loadSource(playbackUrl);
+          hls.attachMedia(videoElement);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (!cancelled) {
+              setPlayerStatus('Live stream connected with hls.js fallback.');
+            }
+          });
+          hls.on(Hls.Events.ERROR, () => {
+            if (!cancelled) {
+              setPlayerStatus(
+                'The live stream playlist loaded but playback is unstable. Please verify Ant Media output and try again.',
+              );
+            }
+          });
+          return;
+        }
+      } catch (error) {
+        setPlayerStatus(
+          'Unable to load HLS playback support in this browser. Please try Safari or verify your network access to the hls.js CDN.',
+        );
+        return;
+      }
+
+      setPlayerStatus(
+        'This browser does not support HLS playback for the provided stream.',
+      );
+    };
+
+    attachPlayback();
 
     return () => {
-      if (playerRef.current) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
+      cancelled = true;
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
     };
   }, [playbackUrl]);
 
-  const getReturnUrl = () => {
-    if (typeof window === 'undefined') {
-      return id ? `/live/${id}` : '/live';
-    }
-
-    return `${window.location.pathname}${window.location.search}`;
-  };
+  const getReturnUrl = () => `${location.pathname}${location.search}`;
 
   const navigateToLogin = () => {
     history.push(`/login?redirect=${encodeURIComponent(getReturnUrl())}`);
@@ -197,6 +287,11 @@ export default function LiveRoomPage() {
           ? await startLiveBroadcast(id)
           : await endLiveBroadcast(id);
       setBroadcast(next);
+      setPlayerStatus(
+        next?.playback_url
+          ? 'Playback URL updated from Django. Refreshing player…'
+          : playerStatus,
+      );
       message.success(
         type === 'start' ? 'Live stream started.' : 'Live stream ended.',
       );
@@ -301,16 +396,33 @@ export default function LiveRoomPage() {
                   style={{ borderRadius: 20, overflow: 'hidden' }}
                 >
                   {playbackUrl ? (
-                    <div
-                      style={{
-                        borderRadius: 16,
-                        overflow: 'hidden',
-                        background: '#000',
-                        minHeight: 420,
-                      }}
+                    <Space
+                      direction="vertical"
+                      size={16}
+                      style={{ width: '100%' }}
                     >
-                      <div ref={videoRef} key={playbackUrl} />
-                    </div>
+                      <div
+                        style={{
+                          borderRadius: 16,
+                          overflow: 'hidden',
+                          background: '#000',
+                          minHeight: 420,
+                        }}
+                      >
+                        <video
+                          ref={videoElementRef}
+                          controls
+                          playsInline
+                          preload="auto"
+                          style={{
+                            width: '100%',
+                            minHeight: 420,
+                            background: '#000',
+                          }}
+                        />
+                      </div>
+                      <Alert type="info" showIcon message={playerStatus} />
+                    </Space>
                   ) : (
                     <Empty description="Playback URL is not available yet. Start your encoder and refresh this room once Django provides the playback endpoint." />
                   )}
@@ -372,9 +484,9 @@ export default function LiveRoomPage() {
                     >
                       <Statistic title="Current viewers" value={viewerCount} />
                       <Text type="secondary">
-                        Real-time viewer analytics and live chat can be
-                        connected here once the backend messaging layer is
-                        ready.
+                        Live playback is bound directly to the `playback_url`
+                        returned by Django so OBS/Ant Media broadcasts can be
+                        validated here.
                       </Text>
                       <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
