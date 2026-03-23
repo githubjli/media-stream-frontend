@@ -138,7 +138,7 @@ export async function listVideoComments(
 
 export async function createVideoComment(
   videoId: string | number,
-  payload: { content: string },
+  payload: { content: string; parent_id?: number | string | null },
 ): Promise<CommentItem> {
   const response = await requestJson<any>(
     `/api/videos/${videoId}/comments/`,

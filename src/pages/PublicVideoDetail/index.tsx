@@ -558,7 +558,10 @@ export default function PublicVideoDetailPage() {
 
     setCommentsSubmitting(true);
     try {
-      const created = await createVideoComment(video.id, { content });
+      const created = await createVideoComment(video.id, {
+        content,
+        parent_id: null,
+      });
       setComments((current) => {
         if (!current) {
           return {

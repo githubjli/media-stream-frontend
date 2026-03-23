@@ -53,11 +53,11 @@ async function requestJson<T>(
 ): Promise<T> {
   const isFormData = options.body instanceof FormData;
   const response = await fetch(buildUrl(path), {
+    ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     },
-    ...options,
   });
 
   if (!response.ok) {
