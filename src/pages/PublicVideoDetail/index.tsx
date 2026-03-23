@@ -1,9 +1,9 @@
 import {
   ClockCircleOutlined,
+  CommentOutlined,
   EyeOutlined,
   FolderOpenOutlined,
   LikeOutlined,
-  SaveOutlined,
   ShareAltOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
@@ -26,6 +26,14 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import {
+  getVideoInteractionSummary,
+  likeVideo,
+  subscribeChannel,
+  unlikeVideo,
+  unsubscribeChannel,
+  type VideoInteractionSummary,
+} from '@/services/engagement';
+import {
   getPublicVideoDetail,
   listPublicVideos,
   type PublicVideo,
@@ -33,61 +41,6 @@ import {
 
 const { Title, Text, Paragraph } = Typography;
 const RECOMMENDATION_LIMIT = 6;
-const ENGAGEMENT_STORAGE_KEY = 'media_stream_public_video_engagement';
-
-type EngagementState = {
-  likedVideoIds: string[];
-  savedVideoIds: string[];
-  subscribedChannels: string[];
-};
-
-const getStoredEngagementState = (): EngagementState => {
-  if (typeof window === 'undefined') {
-    return {
-      likedVideoIds: [],
-      savedVideoIds: [],
-      subscribedChannels: [],
-    };
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(ENGAGEMENT_STORAGE_KEY);
-    if (!rawValue) {
-      return {
-        likedVideoIds: [],
-        savedVideoIds: [],
-        subscribedChannels: [],
-      };
-    }
-
-    const parsed = JSON.parse(rawValue);
-    return {
-      likedVideoIds: Array.isArray(parsed?.likedVideoIds)
-        ? parsed.likedVideoIds
-        : [],
-      savedVideoIds: Array.isArray(parsed?.savedVideoIds)
-        ? parsed.savedVideoIds
-        : [],
-      subscribedChannels: Array.isArray(parsed?.subscribedChannels)
-        ? parsed.subscribedChannels
-        : [],
-    };
-  } catch (error) {
-    return {
-      likedVideoIds: [],
-      savedVideoIds: [],
-      subscribedChannels: [],
-    };
-  }
-};
-
-const setStoredEngagementState = (state: EngagementState) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(ENGAGEMENT_STORAGE_KEY, JSON.stringify(state));
-};
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -122,11 +75,6 @@ const getRecommendationMeta = (video: PublicVideo) =>
   [video.category_display, formatDate(video.created_at)]
     .filter(Boolean)
     .join(' • ');
-
-const getSubscriberLabel = (video?: PublicVideo | null) => {
-  const fallbackSeed = String(video?.id || getAuthorLabel(video)).length;
-  return `${(fallbackSeed * 17 + 120).toLocaleString()} followers`;
-};
 
 const RecommendationItem = ({ video }: { video: PublicVideo }) => {
   const title = video.title || `Video #${video.id}`;
@@ -211,15 +159,11 @@ export default function PublicVideoDetailPage() {
   const [recommendations, setRecommendations] = useState<PublicVideo[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState('');
-  const [engagementState, setEngagementState] = useState<EngagementState>({
-    likedVideoIds: [],
-    savedVideoIds: [],
-    subscribedChannels: [],
-  });
-
-  useEffect(() => {
-    setEngagementState(getStoredEngagementState());
-  }, []);
+  const [interactionSummary, setInteractionSummary] =
+    useState<VideoInteractionSummary | null>(null);
+  const [interactionLoading, setInteractionLoading] = useState(false);
+  const [likeSubmitting, setLikeSubmitting] = useState(false);
+  const [subscribeSubmitting, setSubscribeSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -314,51 +258,64 @@ export default function PublicVideoDetailPage() {
     };
   }, [video?.id, video?.category]);
 
-  const viewsLabel = String(video?.views || video?.view_count || '24.8K views');
-  const videoId = String(video?.id || '');
-  const channelId = getAuthorLabel(video);
-  const isLiked =
-    Boolean(videoId) && engagementState.likedVideoIds.includes(videoId);
-  const isSaved =
-    Boolean(videoId) && engagementState.savedVideoIds.includes(videoId);
-  const isSubscribed =
-    Boolean(channelId) &&
-    engagementState.subscribedChannels.includes(channelId);
-
-  const updateEngagementState = (
-    updater: (current: EngagementState) => EngagementState,
-  ) => {
-    setEngagementState((current) => {
-      const nextState = updater(current);
-      setStoredEngagementState(nextState);
-      return nextState;
-    });
-  };
-
-  const toggleVideoPreference = (
-    key: 'likedVideoIds' | 'savedVideoIds',
-    targetId: string,
-    activeMessage: string,
-    inactiveMessage: string,
-  ) => {
-    if (!targetId) {
+  useEffect(() => {
+    if (!video?.id) {
+      setInteractionSummary(null);
+      setInteractionLoading(false);
       return;
     }
 
-    let enabled = false;
-    updateEngagementState((current) => {
-      const items = current[key];
-      enabled = !items.includes(targetId);
-      return {
-        ...current,
-        [key]: enabled
-          ? [...items, targetId]
-          : items.filter((item) => item !== targetId),
-      };
-    });
+    let active = true;
+    setInteractionLoading(true);
 
-    message.success(enabled ? activeMessage : inactiveMessage);
-  };
+    getVideoInteractionSummary(video.id)
+      .then((data) => {
+        if (active) {
+          setInteractionSummary(data);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setInteractionSummary(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setInteractionLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [video?.id]);
+
+  const viewsLabel =
+    video?.views || video?.view_count
+      ? String(video.views || video.view_count)
+      : 'Views unavailable';
+  const videoId = String(video?.id || '');
+  const channelId = video?.owner_id;
+  const creatorName = video?.owner_name || getAuthorLabel(video);
+  const likeCount = interactionSummary?.like_count;
+  const commentCount = interactionSummary?.comment_count;
+  const subscriberCount = interactionSummary?.subscriber_count;
+  const isLiked = Boolean(interactionSummary?.viewer_has_liked);
+  const isSubscribed = Boolean(interactionSummary?.viewer_is_subscribed);
+  const followerLabel =
+    typeof subscriberCount === 'number'
+      ? `${subscriberCount.toLocaleString()} followers`
+      : 'Followers unavailable';
+  const likeLabel =
+    typeof likeCount === 'number'
+      ? `${isLiked ? 'Liked' : 'Like'} · ${likeCount.toLocaleString()}`
+      : isLiked
+      ? 'Liked'
+      : 'Like';
+  const commentLabel =
+    typeof commentCount === 'number'
+      ? `${commentCount.toLocaleString()} comments`
+      : 'Comments unavailable';
 
   const handleShare = async () => {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -374,56 +331,70 @@ export default function PublicVideoDetailPage() {
     message.info('Copy the current page URL to share this video.');
   };
 
-  const handleSubscribe = () => {
-    if (!channelId) {
+  const handleLike = async () => {
+    if (!video?.id) {
       return;
     }
 
-    let enabled = false;
-    updateEngagementState((current) => {
-      enabled = !current.subscribedChannels.includes(channelId);
-      return {
-        ...current,
-        subscribedChannels: enabled
-          ? [...current.subscribedChannels, channelId]
-          : current.subscribedChannels.filter((item) => item !== channelId),
-      };
-    });
+    setLikeSubmitting(true);
+    try {
+      const nextSummary = isLiked
+        ? await unlikeVideo(video.id).then(() => ({
+            ...(interactionSummary || { video_id: video.id }),
+            like_count: Math.max((interactionSummary?.like_count || 1) - 1, 0),
+            viewer_has_liked: false,
+          }))
+        : await likeVideo(video.id);
 
-    message.success(
-      enabled
-        ? `Subscribed to ${channelId}.`
-        : `Removed subscription to ${channelId}.`,
-    );
+      setInteractionSummary((current) => ({
+        ...(current || {}),
+        ...nextSummary,
+      }));
+    } catch (error: any) {
+      message.error(error?.message || 'Unable to update like status.');
+    } finally {
+      setLikeSubmitting(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!channelId) {
+      message.info('Creator subscription is not available for this video.');
+      return;
+    }
+
+    setSubscribeSubmitting(true);
+    try {
+      if (isSubscribed) {
+        await unsubscribeChannel(channelId);
+      } else {
+        await subscribeChannel(channelId);
+      }
+
+      setInteractionSummary((current) => ({
+        ...(current || { video_id: videoId }),
+        viewer_is_subscribed: !isSubscribed,
+        subscriber_count:
+          typeof current?.subscriber_count === 'number'
+            ? Math.max(current.subscriber_count + (isSubscribed ? -1 : 1), 0)
+            : current?.subscriber_count,
+      }));
+    } catch (error: any) {
+      message.error(error?.message || 'Unable to update subscription status.');
+    } finally {
+      setSubscribeSubmitting(false);
+    }
   };
 
   const interactionItems = useMemo(
     () => [
       {
         key: 'like',
-        label: isLiked ? 'Liked' : 'Like',
+        label: likeLabel,
         icon: <LikeOutlined />,
         type: isLiked ? ('primary' as const) : ('default' as const),
-        onClick: () =>
-          toggleVideoPreference(
-            'likedVideoIds',
-            videoId,
-            'Added to liked videos.',
-            'Removed from liked videos.',
-          ),
-      },
-      {
-        key: 'save',
-        label: isSaved ? 'Saved' : 'Save',
-        icon: <SaveOutlined />,
-        type: isSaved ? ('primary' as const) : ('default' as const),
-        onClick: () =>
-          toggleVideoPreference(
-            'savedVideoIds',
-            videoId,
-            'Saved for later.',
-            'Removed from saved videos.',
-          ),
+        onClick: handleLike,
+        loading: likeSubmitting,
       },
       {
         key: 'share',
@@ -433,7 +404,7 @@ export default function PublicVideoDetailPage() {
         onClick: handleShare,
       },
     ],
-    [isLiked, isSaved, videoId],
+    [handleShare, isLiked, likeLabel, likeSubmitting],
   );
 
   const metadataItems = useMemo(() => {
@@ -605,7 +576,7 @@ export default function PublicVideoDetailPage() {
                       size={[12, 12]}
                       style={{ width: '100%', justifyContent: 'space-between' }}
                     >
-                      <Space wrap size={[8, 8]}>
+                      <Space wrap size={[8, 8, 8]}>
                         <div
                           style={{
                             display: 'inline-flex',
@@ -619,6 +590,19 @@ export default function PublicVideoDetailPage() {
                           <EyeOutlined style={{ color: '#667085' }} />
                           <Text strong>{viewsLabel}</Text>
                         </div>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 12px',
+                            borderRadius: 999,
+                            background: 'rgba(15, 23, 42, 0.05)',
+                          }}
+                        >
+                          <CommentOutlined style={{ color: '#667085' }} />
+                          <Text strong>{commentLabel}</Text>
+                        </div>
                       </Space>
                       <Space wrap size={[8, 8]}>
                         {interactionItems.map((action) => (
@@ -627,6 +611,7 @@ export default function PublicVideoDetailPage() {
                             icon={action.icon}
                             type={action.type}
                             onClick={action.onClick}
+                            loading={action.loading}
                           >
                             {action.label}
                           </Button>
@@ -653,16 +638,11 @@ export default function PublicVideoDetailPage() {
                         size={16}
                         style={{ flex: 1, minWidth: 280 }}
                       >
-                        <Avatar
-                          size={64}
-                          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${getAuthorLabel(
-                            video,
-                          )}`}
-                        />
+                        <Avatar size={64} src={video.owner_avatar_url} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <Space wrap size={[8, 8]} style={{ marginBottom: 4 }}>
                             <Title level={4} style={{ margin: 0 }}>
-                              {getAuthorLabel(video)}
+                              {creatorName}
                             </Title>
                             {video.category_display ? (
                               <Tag bordered={false} color="default">
@@ -674,11 +654,14 @@ export default function PublicVideoDetailPage() {
                             type="secondary"
                             style={{ display: 'block', marginBottom: 4 }}
                           >
-                            {getSubscriberLabel(video)}
+                            {interactionLoading
+                              ? 'Loading audience details…'
+                              : followerLabel}
                           </Text>
                           <Text type="secondary" style={{ display: 'block' }}>
-                            Featured public creator with lightweight demo
-                            engagement saved in your browser.
+                            {video.owner_name
+                              ? 'Video owner information from the published video record.'
+                              : 'Creator information is limited for this video.'}
                           </Text>
                         </div>
                       </Space>
@@ -687,6 +670,8 @@ export default function PublicVideoDetailPage() {
                         type={isSubscribed ? 'default' : 'primary'}
                         icon={<UserAddOutlined />}
                         onClick={handleSubscribe}
+                        loading={subscribeSubmitting}
+                        disabled={!channelId}
                       >
                         {isSubscribed ? 'Subscribed' : 'Subscribe'}
                       </Button>

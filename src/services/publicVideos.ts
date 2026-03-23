@@ -6,6 +6,9 @@ export type PublicVideo = {
   description?: string;
   category?: string;
   category_display?: string;
+  owner_id?: number | string;
+  owner_name?: string;
+  owner_avatar_url?: string;
   created_at?: string;
   file_url?: string;
   thumbnail?: string;

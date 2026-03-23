@@ -2,10 +2,11 @@ import { getValidAccessToken, requestJson } from '@/services/auth';
 
 export type VideoInteractionSummary = {
   video_id: number | string;
-  like_count: number;
-  comment_count: number;
-  is_liked?: boolean;
-  is_subscribed?: boolean;
+  like_count?: number;
+  comment_count?: number;
+  subscriber_count?: number;
+  viewer_has_liked?: boolean;
+  viewer_is_subscribed?: boolean;
   [key: string]: any;
 };
 
