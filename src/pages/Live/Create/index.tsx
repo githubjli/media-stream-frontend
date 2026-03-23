@@ -32,8 +32,26 @@ import { createLiveBroadcast, type LiveBroadcast } from '@/services/live';
 
 const { Title, Text, Paragraph } = Typography;
 
+const ANT_MEDIA_WEBSOCKET_URL =
+  'wss://streaming-api-live.pttblockchain.online:5443/live/websocket';
+const ANT_MEDIA_ADAPTOR_SCRIPT =
+  'https://streaming-api-live.pttblockchain.online:5443/live/js/webrtc_adaptor.js';
+
 type BroadcastMode = 'camera' | 'stream-key';
 type DevicePermissionStatus = 'idle' | 'requesting' | 'ready' | 'error';
+type PublishingStatus = 'idle' | 'connecting' | 'publishing' | 'live' | 'error';
+
+type AntMediaWebRTCAdaptor = {
+  publish: (streamId: string) => void;
+  stop: (streamId: string) => void;
+  closeWebSocket?: () => void;
+};
+
+declare global {
+  interface Window {
+    WebRTCAdaptor?: new (config: Record<string, any>) => AntMediaWebRTCAdaptor;
+  }
+}
 
 const copyValue = async (value: string, label: string) => {
   if (!value) {
@@ -47,6 +65,43 @@ const copyValue = async (value: string, label: string) => {
   } catch (error) {
     message.info(`Copy ${label.toLowerCase()} manually.`);
   }
+};
+
+const loadWebRTCAdaptorScript = async () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (window.WebRTCAdaptor) {
+    return window.WebRTCAdaptor;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-ant-media-adaptor="true"]',
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true });
+      existingScript.addEventListener(
+        'error',
+        () => reject(new Error('Unable to load the Ant Media WebRTC adaptor.')),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = ANT_MEDIA_ADAPTOR_SCRIPT;
+    script.async = true;
+    script.dataset.antMediaAdaptor = 'true';
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(new Error('Unable to load the Ant Media WebRTC adaptor.'));
+    document.head.appendChild(script);
+  });
+
+  return window.WebRTCAdaptor || null;
 };
 
 const getPermissionTagColor = (status: DevicePermissionStatus) => {
@@ -67,6 +122,7 @@ export default function LiveCreatePage() {
   const [form] = Form.useForm();
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const webRTCAdaptorRef = useRef<AntMediaWebRTCAdaptor | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -79,6 +135,11 @@ export default function LiveCreatePage() {
   );
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [isCameraEnabled, setIsCameraEnabled] = useState(true);
+  const [publishingStatus, setPublishingStatus] =
+    useState<PublishingStatus>('idle');
+  const [publishingMessage, setPublishingMessage] = useState(
+    'Browser publishing is standing by.',
+  );
 
   useEffect(() => {
     if (!initialState?.authLoading && !initialState?.currentUser?.email) {
@@ -94,10 +155,15 @@ export default function LiveCreatePage() {
 
   useEffect(() => {
     return () => {
+      const streamId = createdLive?.stream_key || '';
+      if (streamId && webRTCAdaptorRef.current) {
+        webRTCAdaptorRef.current.stop(streamId);
+      }
+      webRTCAdaptorRef.current?.closeWebSocket?.();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     };
-  }, []);
+  }, [createdLive?.stream_key]);
 
   const categoryOptions = useMemo(
     () =>
@@ -123,8 +189,10 @@ export default function LiveCreatePage() {
       setBroadcastMode('camera');
       setDevicePermissionStatus('idle');
       setDeviceStatusMessage(
-        'Live session created. Choose a browser camera preview or continue with your professional RTMP setup.',
+        'Live session created. Choose a browser camera workflow or continue with your professional RTMP setup.',
       );
+      setPublishingStatus('idle');
+      setPublishingMessage('Browser publishing is standing by.');
       message.success(
         'Live stream created. Choose how you want to prepare your broadcast.',
       );
@@ -135,10 +203,10 @@ export default function LiveCreatePage() {
     }
   };
 
-  const startCameraPreview = async () => {
+  const prepareLocalPreview = async () => {
     if (!createdLive) {
       message.info('Create your live session first.');
-      return;
+      return null;
     }
 
     const isLocalhost =
@@ -152,17 +220,15 @@ export default function LiveCreatePage() {
       setDeviceStatusMessage(
         hasSecureContext || isLocalhost
           ? 'Camera preview is unavailable because this browser does not expose camera access for the current environment.'
-          : 'Camera and microphone preview requires HTTPS or localhost. Your current LAN URL is not a secure browser context.',
+          : 'Camera streaming requires HTTPS',
       );
-      return;
+      return null;
     }
 
     if (!hasSecureContext && !isLocalhost) {
       setDevicePermissionStatus('error');
-      setDeviceStatusMessage(
-        'Camera and microphone preview requires HTTPS or localhost. Switch to a secure URL, then try again.',
-      );
-      return;
+      setDeviceStatusMessage('Camera streaming requires HTTPS');
+      return null;
     }
 
     setDevicePermissionStatus('requesting');
@@ -186,20 +252,124 @@ export default function LiveCreatePage() {
       setIsCameraEnabled(cameraEnabled);
       setDevicePermissionStatus('ready');
       setDeviceStatusMessage(
-        'Camera and microphone are ready. This local preview can be wired to Ant Media WebRTC publishing next.',
+        'Camera and microphone are ready. Connecting browser publishing to Ant Media now.',
       );
 
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = stream;
         await previewVideoRef.current.play().catch(() => undefined);
       }
+
+      return stream;
     } catch (error: any) {
       setDevicePermissionStatus('error');
       setDeviceStatusMessage(
         error?.message ||
           'Camera preview could not start. Please review browser permissions, confirm HTTPS or localhost, and try again.',
       );
+      return null;
     }
+  };
+
+  const handleStartWithCamera = async () => {
+    if (!createdLive?.stream_key) {
+      message.error(
+        'A Django stream key is required before browser publishing can start.',
+      );
+      return;
+    }
+
+    const stream = await prepareLocalPreview();
+    if (!stream) {
+      setPublishingStatus('error');
+      setPublishingMessage(
+        'Browser publishing could not start because camera or microphone access is unavailable.',
+      );
+      return;
+    }
+
+    setPublishingStatus('connecting');
+    setPublishingMessage('Connecting to Ant Media publishing websocket…');
+
+    try {
+      const WebRTCAdaptorCtor = await loadWebRTCAdaptorScript();
+      if (!WebRTCAdaptorCtor) {
+        throw new Error('Unable to initialize the Ant Media WebRTC adaptor.');
+      }
+
+      webRTCAdaptorRef.current?.closeWebSocket?.();
+      webRTCAdaptorRef.current = new WebRTCAdaptorCtor({
+        websocket_url: ANT_MEDIA_WEBSOCKET_URL,
+        mediaConstraints: { video: true, audio: true },
+        peerconnection_config: {
+          iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }],
+        },
+        sdp_constraints: {
+          OfferToReceiveAudio: false,
+          OfferToReceiveVideo: false,
+        },
+        localVideoId: 'live-create-preview-video',
+        localStream: stream,
+        isPlayMode: false,
+        debug: false,
+        callback: (info: string) => {
+          if (info === 'initialized') {
+            setPublishingStatus('connecting');
+            setPublishingMessage(
+              'WebRTC adaptor initialized. Starting browser publish…',
+            );
+            webRTCAdaptorRef.current?.publish(createdLive.stream_key || '');
+            return;
+          }
+
+          if (info === 'publish_started') {
+            setPublishingStatus('publishing');
+            setPublishingMessage('Publishing from browser to Ant Media…');
+            return;
+          }
+
+          if (info === 'ice_connection_state_changed') {
+            setPublishingStatus('live');
+            setPublishingMessage(
+              'Live from browser. Your camera stream is publishing to the Ant Media live app.',
+            );
+            return;
+          }
+
+          if (info === 'publish_finished') {
+            setPublishingStatus('idle');
+            setPublishingMessage(
+              'Browser publishing stopped. OBS workflow remains available.',
+            );
+          }
+        },
+        callbackError: (error: any, messageText: any) => {
+          setPublishingStatus('error');
+          setPublishingMessage(
+            messageText || error?.toString?.() || 'Browser publishing failed.',
+          );
+        },
+      });
+    } catch (error: any) {
+      setPublishingStatus('error');
+      setPublishingMessage(
+        error?.message || 'Unable to connect browser publishing to Ant Media.',
+      );
+    }
+  };
+
+  const handleStopPublishing = () => {
+    if (!createdLive?.stream_key || !webRTCAdaptorRef.current) {
+      setPublishingStatus('idle');
+      setPublishingMessage('Browser publishing is already stopped.');
+      return;
+    }
+
+    webRTCAdaptorRef.current.stop(createdLive.stream_key);
+    setPublishingStatus('idle');
+    setPublishingMessage(
+      'Browser publishing stopped. OBS workflow remains available.',
+    );
   };
 
   const toggleTrack = (kind: 'audio' | 'video') => {
@@ -276,7 +446,10 @@ export default function LiveCreatePage() {
     },
     {
       label: 'Publishing pipeline',
-      value: 'Prepared for future Ant Media WebRTC wiring',
+      value:
+        publishingStatus === 'live'
+          ? 'Connected to Ant Media live app'
+          : 'Ready for Ant Media browser publishing',
     },
   ];
 
@@ -471,6 +644,7 @@ export default function LiveCreatePage() {
                           >
                             {devicePermissionStatus === 'ready' ? (
                               <video
+                                id="live-create-preview-video"
                                 ref={previewVideoRef}
                                 autoPlay
                                 muted
@@ -519,9 +693,9 @@ export default function LiveCreatePage() {
                               type="primary"
                               icon={<VideoCameraAddOutlined />}
                               disabled={!createdLive}
-                              onClick={startCameraPreview}
+                              onClick={handleStartWithCamera}
                             >
-                              Start Camera Preview
+                              Start with Camera
                             </Button>
                             <Button
                               icon={
@@ -548,9 +722,16 @@ export default function LiveCreatePage() {
                             <Button
                               icon={<ReloadOutlined />}
                               disabled={!createdLive}
-                              onClick={startCameraPreview}
+                              onClick={handleStartWithCamera}
                             >
                               Refresh Devices
+                            </Button>
+                            <Button
+                              danger
+                              disabled={publishingStatus === 'idle'}
+                              onClick={handleStopPublishing}
+                            >
+                              Stop Publishing
                             </Button>
                           </Space>
                         </>
@@ -589,7 +770,34 @@ export default function LiveCreatePage() {
                           Device readiness:{' '}
                           {devicePermissionStatus.toUpperCase()}
                         </Tag>
+                        <Tag
+                          color={
+                            publishingStatus === 'live'
+                              ? 'error'
+                              : publishingStatus === 'publishing'
+                              ? 'processing'
+                              : publishingStatus === 'connecting'
+                              ? 'processing'
+                              : publishingStatus === 'error'
+                              ? 'warning'
+                              : 'default'
+                          }
+                        >
+                          Browser publish: {publishingStatus.toUpperCase()}
+                        </Tag>
                         <Text type="secondary">{deviceStatusMessage}</Text>
+                        <Text type="secondary">{publishingMessage}</Text>
+                        {typeof window !== 'undefined' &&
+                        !window.isSecureContext &&
+                        !['localhost', '127.0.0.1'].includes(
+                          window.location.hostname,
+                        ) ? (
+                          <Alert
+                            type="warning"
+                            showIcon
+                            message="Camera streaming requires HTTPS"
+                          />
+                        ) : null}
                         {devicePermissionStatus === 'error' ? (
                           <Alert
                             type="warning"
