@@ -36,6 +36,8 @@ export default defineConfig({
     { path: '/admin/videos', component: './Videos/All', hideInMenu: false },
     { path: '/videos/:id', component: './Videos/Detail', hideInMenu: true },
     { path: '/browse/:id', component: './PublicVideoDetail', hideInMenu: true },
+    { path: '/live/create', component: './Live/Create', hideInMenu: true },
+    { path: '/live/:id', component: './LiveRoom', hideInMenu: true },
     {
       path: '/categories/:category',
       component: './Categories',

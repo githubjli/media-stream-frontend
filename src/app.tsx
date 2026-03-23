@@ -127,6 +127,10 @@ export const layout: RunTimeLayoutConfig = ({
     history.push(isLoggedIn ? '/videos/upload' : '/login');
   };
 
+  const handleGoLiveClick = () => {
+    history.push(isLoggedIn ? '/live/create' : '/login');
+  };
+
   const handleLogout = async () => {
     clearStoredTokens();
     await setInitialState((prev) => ({
@@ -212,6 +216,20 @@ export const layout: RunTimeLayoutConfig = ({
         name: 'Live',
         icon: stableItemMap.get('/live'),
         className: 'sidebar-menu-item sidebar-menu-item-live',
+        children: [
+          {
+            name: 'Explore Live',
+            path: '/live',
+            icon: <VideoCameraOutlined />,
+            className: 'sidebar-menu-item sidebar-menu-item-live-child',
+          },
+          {
+            name: 'Go Live',
+            path: '/live/create',
+            icon: <UploadOutlined />,
+            className: 'sidebar-menu-item sidebar-menu-item-live-child',
+          },
+        ],
       };
 
       return [
@@ -274,6 +292,23 @@ export const layout: RunTimeLayoutConfig = ({
         style={{ marginRight: 6, display: 'flex', alignItems: 'center' }}
       >
         <Button
+          type="primary"
+          icon={<VideoCameraOutlined style={{ fontSize: 16 }} />}
+          style={{
+            borderRadius: 10,
+            fontWeight: 700,
+            color: '#07272a',
+            backgroundColor: '#5bd1d7',
+            border: 'none',
+            boxShadow: isDark
+              ? '0 8px 18px rgba(91, 209, 215, 0.16)'
+              : '0 8px 18px rgba(91, 209, 215, 0.18)',
+          }}
+          onClick={handleGoLiveClick}
+        >
+          Go Live
+        </Button>
+        <Button
           type="text"
           icon={<CloudUploadOutlined style={{ fontSize: 18 }} />}
           style={utilityButtonStyle}
@@ -335,6 +370,12 @@ export const layout: RunTimeLayoutConfig = ({
                   icon: <UploadOutlined />,
                   label: 'Upload Video',
                   onClick: () => history.push('/videos/upload'),
+                },
+                {
+                  key: 'go-live',
+                  icon: <VideoCameraOutlined />,
+                  label: 'Go Live',
+                  onClick: handleGoLiveClick,
                 },
                 ...(isAdmin
                   ? [
