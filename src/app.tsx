@@ -83,8 +83,8 @@ export const layout: RunTimeLayoutConfig = ({
   const currentUser = initialState?.currentUser;
   const isLoggedIn = Boolean(currentUser?.email);
   const utilityButtonStyle = {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     display: 'inline-flex',
     alignItems: 'center',
@@ -112,7 +112,7 @@ export const layout: RunTimeLayoutConfig = ({
     splitMenus: false,
     navTheme: isDark ? 'realDark' : 'light',
     colorPrimary: '#35b8be',
-    siderWidth: 188,
+    siderWidth: 204,
     menuHeaderRender: false,
     menuDataRender: (menuData) => {
       const stableItemMap = new Map([
