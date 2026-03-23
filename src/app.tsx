@@ -50,6 +50,27 @@ const getCategoryIcon = (slug?: string) => {
   return <BookOutlined />;
 };
 
+const SIDEBAR_CATEGORY_FALLBACKS = [
+  { name: 'Technology', slug: 'technology' },
+  { name: 'Education', slug: 'education' },
+  { name: 'Gaming', slug: 'gaming' },
+  { name: 'News', slug: 'news' },
+  { name: 'Entertainment', slug: 'entertainment' },
+  { name: 'Other', slug: 'other' },
+];
+
+const normalizeCategoryKey = (value?: string) => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+  if (normalized === 'tech') return 'technology';
+  if (normalized === 'technology') return 'technology';
+  if (normalized === 'edu') return 'education';
+  if (normalized === 'learning') return 'education';
+  return normalized;
+};
+
 const isAdminUser = (user?: CurrentUser | null) =>
   Boolean(
     user &&
@@ -120,33 +141,87 @@ export const layout: RunTimeLayoutConfig = ({
     title: 'Media Stream',
     layout: 'mix',
     splitMenus: false,
+    defaultCollapsed: true,
     navTheme: isDark ? 'realDark' : 'light',
     colorPrimary: '#35b8be',
-    siderWidth: 204,
+    siderWidth: 224,
+    collapsedWidth: 76,
     menuHeaderRender: false,
     menuDataRender: (menuData) => {
-      const stableItemMap = new Map([
+      const stableItemMap = new Map<string, any>([
         ['/home', <VideoCameraOutlined />],
         ['/browse', <CompassOutlined />],
         ['/live', <ThunderboltOutlined />],
         ['/admin/videos', <SettingOutlined />],
       ]);
-      const stableItems = menuData
-        .filter((item) => item.path && stableItemMap.has(item.path))
-        .filter((item) => item.path !== '/admin/videos' || isAdmin)
-        .map((item) => ({
-          ...item,
-          icon: stableItemMap.get(item.path || ''),
-          name: item.path === '/admin/videos' ? 'All Videos' : item.name,
-        }));
-      const categoryItems = (initialState?.publicCategories || []).map(
-        (category) => ({
-          name: category.name,
-          path: `/categories/${category.slug}`,
-          icon: getCategoryIcon(category.slug),
-        }),
+      const stableItems = menuData.filter(
+        (item) => item.path && stableItemMap.has(item.path),
       );
-      return [...stableItems, ...categoryItems];
+      const stableItemByPath = new Map(
+        stableItems.map((item) => [item.path || '', item]),
+      );
+
+      const primaryItems = ['/home', '/browse'].map((path) => ({
+        ...(stableItemByPath.get(path) || {}),
+        path,
+        name:
+          path === '/home' ? 'Home' : path === '/browse' ? 'Browse' : undefined,
+        icon: stableItemMap.get(path),
+        className: 'sidebar-menu-item sidebar-menu-item-primary',
+      }));
+
+      const adminItems = isAdmin
+        ? [
+            {
+              ...(stableItemByPath.get('/admin/videos') || {}),
+              path: '/admin/videos',
+              name: 'All Videos',
+              icon: stableItemMap.get('/admin/videos'),
+              className: 'sidebar-menu-item sidebar-menu-item-admin',
+            },
+          ]
+        : [];
+
+      const apiCategories = new Map(
+        (initialState?.publicCategories || []).map((category) => [
+          normalizeCategoryKey(category.slug || category.name),
+          category,
+        ]),
+      );
+
+      const categoryItems = SIDEBAR_CATEGORY_FALLBACKS.map(
+        (fallbackCategory) => {
+          const matchedCategory = apiCategories.get(
+            normalizeCategoryKey(fallbackCategory.slug),
+          );
+          const slug = matchedCategory?.slug || fallbackCategory.slug;
+          const name = matchedCategory?.name || fallbackCategory.name;
+
+          return {
+            name,
+            path: `/categories/${slug}`,
+            icon: getCategoryIcon(slug),
+            className: 'sidebar-menu-item sidebar-menu-item-category',
+          };
+        },
+      );
+
+      const liveItem = {
+        ...(stableItemByPath.get('/live') || {}),
+        path: '/live',
+        name: 'Live',
+        icon: stableItemMap.get('/live'),
+        className: 'sidebar-menu-item sidebar-menu-item-live',
+      };
+
+      return [
+        ...primaryItems,
+        ...adminItems,
+        { type: 'divider', key: 'sidebar-divider-primary' } as any,
+        ...categoryItems,
+        { type: 'divider', key: 'sidebar-divider-live' } as any,
+        liveItem,
+      ];
     },
     headerTitleRender: () => (
       <div
