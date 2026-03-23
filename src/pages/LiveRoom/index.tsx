@@ -33,6 +33,8 @@ import {
 
 const { Title, Text, Paragraph } = Typography;
 
+type PlayerPhase = 'idle' | 'loading' | 'playing' | 'waiting' | 'error';
+
 type HlsCtor = {
   isSupported: () => boolean;
   Events: { MANIFEST_PARSED: string; ERROR: string };
@@ -136,6 +138,7 @@ export default function LiveRoomPage() {
   const [playerStatus, setPlayerStatus] = useState(
     'Waiting for a playback URL from Django.',
   );
+  const [playerPhase, setPlayerPhase] = useState<PlayerPhase>('idle');
 
   const isLoggedIn = Boolean(initialState?.currentUser?.email);
   const playbackUrl = broadcast?.playback_url || '';
@@ -169,10 +172,9 @@ export default function LiveRoomPage() {
       const data = await getLiveBroadcast(id);
       setBroadcast(data);
       setErrorMessage('');
+      setPlayerPhase(data?.playback_url ? 'loading' : 'waiting');
       setPlayerStatus(
-        data?.playback_url
-          ? 'Playback URL received from Django. Preparing player…'
-          : 'Playback URL is not available yet. Start publishing from OBS or your encoder and refresh shortly.',
+        data?.playback_url ? 'Waiting for stream...' : 'Stream not started yet',
       );
     } catch (error: any) {
       setErrorMessage(error?.message || 'Unable to load the live room.');
@@ -191,6 +193,8 @@ export default function LiveRoomPage() {
   useEffect(() => {
     const videoElement = videoElementRef.current;
     if (!videoElement || !playbackUrl) {
+      setPlayerPhase('waiting');
+      setPlayerStatus('Stream not started yet');
       return;
     }
 
@@ -203,6 +207,8 @@ export default function LiveRoomPage() {
 
       hlsRef.current?.destroy();
       hlsRef.current = null;
+      setPlayerPhase('loading');
+      setPlayerStatus('Waiting for stream...');
       videoElement.pause();
       videoElement.removeAttribute('src');
       videoElement.load();
@@ -211,9 +217,35 @@ export default function LiveRoomPage() {
         'application/vnd.apple.mpegurl',
       );
 
+      const handlePlaying = () => {
+        if (!cancelled) {
+          setPlayerPhase('playing');
+          setPlayerStatus('Live stream is playing.');
+        }
+      };
+
+      const handleWaiting = () => {
+        if (!cancelled) {
+          setPlayerPhase('waiting');
+          setPlayerStatus('Waiting for stream...');
+        }
+      };
+
+      const handlePlaybackError = () => {
+        if (!cancelled) {
+          setPlayerPhase('error');
+          setPlayerStatus('Stream not started yet');
+        }
+      };
+
+      videoElement.onplaying = handlePlaying;
+      videoElement.onwaiting = handleWaiting;
+      videoElement.onerror = handlePlaybackError;
+      videoElement.onloadeddata = handlePlaying;
+
       if (canUseNativeHls) {
         videoElement.src = playbackUrl;
-        setPlayerStatus('Using native HLS playback for this stream.');
+        videoElement.play().catch(() => undefined);
         return;
       }
 
@@ -230,25 +262,28 @@ export default function LiveRoomPage() {
           hls.attachMedia(videoElement);
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             if (!cancelled) {
-              setPlayerStatus('Live stream connected with hls.js fallback.');
+              setPlayerPhase('loading');
+              setPlayerStatus('Waiting for stream...');
+              videoElement.play().catch(() => undefined);
             }
           });
           hls.on(Hls.Events.ERROR, () => {
             if (!cancelled) {
-              setPlayerStatus(
-                'The live stream playlist loaded but playback is unstable. Please verify Ant Media output and try again.',
-              );
+              setPlayerPhase('error');
+              setPlayerStatus('Stream not started yet');
             }
           });
           return;
         }
       } catch (error) {
+        setPlayerPhase('error');
         setPlayerStatus(
           'Unable to load HLS playback support in this browser. Please try Safari or verify your network access to the hls.js CDN.',
         );
         return;
       }
 
+      setPlayerPhase('error');
       setPlayerStatus(
         'This browser does not support HLS playback for the provided stream.',
       );
@@ -260,6 +295,10 @@ export default function LiveRoomPage() {
       cancelled = true;
       hlsRef.current?.destroy();
       hlsRef.current = null;
+      videoElement.onplaying = null;
+      videoElement.onwaiting = null;
+      videoElement.onerror = null;
+      videoElement.onloadeddata = null;
     };
   }, [playbackUrl]);
 
@@ -287,10 +326,9 @@ export default function LiveRoomPage() {
           ? await startLiveBroadcast(id)
           : await endLiveBroadcast(id);
       setBroadcast(next);
+      setPlayerPhase(next?.playback_url ? 'loading' : playerPhase);
       setPlayerStatus(
-        next?.playback_url
-          ? 'Playback URL updated from Django. Refreshing player…'
-          : playerStatus,
+        next?.playback_url ? 'Waiting for stream...' : playerStatus,
       );
       message.success(
         type === 'start' ? 'Live stream started.' : 'Live stream ended.',
@@ -411,6 +449,7 @@ export default function LiveRoomPage() {
                       >
                         <video
                           ref={videoElementRef}
+                          autoPlay
                           controls
                           playsInline
                           preload="auto"
