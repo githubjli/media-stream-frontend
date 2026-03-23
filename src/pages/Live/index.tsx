@@ -1,6 +1,6 @@
 import { EyeOutlined, VideoCameraOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { history } from '@umijs/max';
+import { history, useModel } from '@umijs/max';
 import {
   Alert,
   Avatar,
@@ -35,9 +35,20 @@ const getStatusColor = (status?: string) => {
 };
 
 export default function ExploreLivePage() {
+  const { initialState } = useModel('@@initialState');
   const [streams, setStreams] = useState<LiveBroadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const isLoggedIn = Boolean(initialState?.currentUser?.email);
+  const getLiveCreateUrl = () => '/live/create';
+  const handleGoLiveClick = () => {
+    history.push(
+      isLoggedIn
+        ? getLiveCreateUrl()
+        : `/login?redirect=${encodeURIComponent(getLiveCreateUrl())}`,
+    );
+  };
 
   useEffect(() => {
     let active = true;
@@ -91,7 +102,7 @@ export default function ExploreLivePage() {
             <Button
               type="primary"
               icon={<VideoCameraOutlined />}
-              onClick={() => history.push('/live/create')}
+              onClick={handleGoLiveClick}
             >
               Go Live
             </Button>
@@ -114,10 +125,7 @@ export default function ExploreLivePage() {
         ) : streams.length === 0 ? (
           <Card bordered={false} style={{ borderRadius: 20 }}>
             <Empty description="No live streams are available yet.">
-              <Button
-                type="primary"
-                onClick={() => history.push('/live/create')}
-              >
+              <Button type="primary" onClick={handleGoLiveClick}>
                 Create the first stream
               </Button>
             </Empty>

@@ -6,7 +6,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { useParams } from '@umijs/max';
+import { history, useModel, useParams } from '@umijs/max';
 import {
   Alert,
   Avatar,
@@ -71,6 +71,7 @@ const copyValue = async (value: string, label: string) => {
 };
 
 export default function LiveRoomPage() {
+  const { initialState } = useModel('@@initialState');
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const query = useMemo(
@@ -86,6 +87,7 @@ export default function LiveRoomPage() {
   );
   const [errorMessage, setErrorMessage] = useState('');
 
+  const isLoggedIn = Boolean(initialState?.currentUser?.email);
   const playbackUrl = broadcast?.playback_url || '';
   const title = broadcast?.title || broadcast?.name || 'Live Stream';
   const creatorName =
@@ -165,8 +167,26 @@ export default function LiveRoomPage() {
     };
   }, [playbackUrl]);
 
+  const getReturnUrl = () => {
+    if (typeof window === 'undefined') {
+      return id ? `/live/${id}` : '/live';
+    }
+
+    return `${window.location.pathname}${window.location.search}`;
+  };
+
+  const navigateToLogin = () => {
+    history.push(`/login?redirect=${encodeURIComponent(getReturnUrl())}`);
+  };
+
   const handleAction = async (type: 'start' | 'end') => {
     if (!id) {
+      return;
+    }
+
+    if (!isLoggedIn) {
+      message.info('Please log in to manage this live stream.');
+      navigateToLogin();
       return;
     }
 
@@ -186,6 +206,8 @@ export default function LiveRoomPage() {
       setActionLoading(null);
     }
   };
+
+  const startButtonLabel = isLoggedIn ? 'Start Live' : 'Log in to Start';
 
   return (
     <PageContainer title={false}>
@@ -250,7 +272,7 @@ export default function LiveRoomPage() {
                       disabled={!canStart(broadcast.status)}
                       onClick={() => handleAction('start')}
                     >
-                      Start Live
+                      {startButtonLabel}
                     </Button>
                     <Button
                       danger

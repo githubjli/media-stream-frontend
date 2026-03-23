@@ -50,7 +50,7 @@ export default function LiveCreatePage() {
 
   useEffect(() => {
     if (!initialState?.authLoading && !initialState?.currentUser?.email) {
-      history.replace('/login');
+      history.replace(`/login?redirect=${encodeURIComponent('/live/create')}`);
     }
   }, [initialState?.authLoading, initialState?.currentUser?.email]);
 

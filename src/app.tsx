@@ -126,9 +126,12 @@ export const layout: RunTimeLayoutConfig = ({
   const handleUploadClick = () => {
     history.push(isLoggedIn ? '/videos/upload' : '/login');
   };
-
   const handleGoLiveClick = () => {
-    history.push(isLoggedIn ? '/live/create' : '/login');
+    history.push(
+      isLoggedIn
+        ? '/live/create'
+        : `/login?redirect=${encodeURIComponent('/live/create')}`,
+    );
   };
 
   const handleLogout = async () => {

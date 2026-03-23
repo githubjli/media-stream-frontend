@@ -1,13 +1,14 @@
 import { getCurrentUser, loginWithEmail } from '@/services/auth';
 import { setStoredTokens } from '@/utils/auth';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
-import { history, useModel } from '@umijs/max';
+import { history, useLocation, useModel } from '@umijs/max';
 import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
+  const location = useLocation();
   const [form] = Form.useForm();
   const { initialState, setInitialState } = useModel('@@initialState');
   const [submitting, setSubmitting] = useState(false);
@@ -15,12 +16,14 @@ export default function LoginPage() {
 
   const isLoggedIn = Boolean(initialState?.currentUser?.email);
   const isCheckingAuth = Boolean(initialState?.authLoading);
+  const redirectTarget =
+    new URLSearchParams(location.search).get('redirect') || '/home';
 
   useEffect(() => {
     if (!isCheckingAuth && isLoggedIn) {
-      history.replace('/home');
+      history.replace(redirectTarget);
     }
-  }, [isCheckingAuth, isLoggedIn]);
+  }, [isCheckingAuth, isLoggedIn, redirectTarget]);
 
   const handleFinish = async (values: { email: string; password: string }) => {
     setSubmitting(true);
@@ -46,7 +49,7 @@ export default function LoginPage() {
         authLoading: false,
       }));
 
-      history.push('/home');
+      history.push(redirectTarget);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Unable to log in right now.');
     } finally {
@@ -142,7 +145,11 @@ export default function LoginPage() {
 
           <Button
             type="link"
-            onClick={() => history.push('/register')}
+            onClick={() =>
+              history.push(
+                `/register?redirect=${encodeURIComponent(redirectTarget)}`,
+              )
+            }
             style={{ padding: 0, alignSelf: 'flex-start' }}
           >
             Need an account? Create one

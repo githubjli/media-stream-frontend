@@ -1,3 +1,5 @@
+import { getAccessToken } from '@/utils/auth';
+
 import { getValidAccessToken, requestJson } from '@/services/auth';
 
 export type LiveBroadcast = {
@@ -35,6 +37,16 @@ const withAuth = async (options: RequestInit = {}) => {
     headers: {
       ...(options.headers || {}),
       Authorization: `Bearer ${accessToken}`,
+    },
+  };
+};
+const withOptionalAuth = (options: RequestInit = {}) => {
+  const accessToken = getAccessToken();
+  return {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
   };
 };
@@ -77,7 +89,10 @@ const normalizeBroadcastList = (payload: any): LiveBroadcast[] => {
 };
 
 export async function getLiveList(): Promise<LiveBroadcast[]> {
-  const payload = await requestJson<any>('/api/live/', { method: 'GET' });
+  const payload = await requestJson<any>(
+    '/api/live/',
+    withOptionalAuth({ method: 'GET' }),
+  );
   return normalizeBroadcastList(payload);
 }
 
