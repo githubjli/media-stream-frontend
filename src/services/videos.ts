@@ -89,7 +89,7 @@ export async function listAllVideos(
 
   const query = searchParams.toString();
   const payload = await requestJson<any>(
-    `/api/videos/${query ? `?${query}` : ''}`,
+    `/api/admin/videos/${query ? `?${query}` : ''}`,
     await withAuth({ method: 'GET' }),
   );
 
